@@ -145,7 +145,7 @@ async function startLangServer() {
     }
     const config = vscode.workspace.getConfiguration("mecha.server")
     const cwd = getCwd()
-    const serverPath = getServerPath()
+    const serverPath = 'language_server'
 
     logger.info(`cwd: '${cwd}'`)
     logger.info(`server: '${serverPath}'`)

@@ -12,8 +12,6 @@ class MechaLite(Mecha):
             source=function.text,
             preprocessor=self.preprocessor,
         )
-
-        diagnostics: list[Diagnostic] = []
          
         ast = self.parse_stream(False, {}, AstRoot.parser, stream)
 

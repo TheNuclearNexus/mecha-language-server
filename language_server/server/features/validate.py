@@ -5,14 +5,18 @@ from tokenstream import InvalidSyntax, UnexpectedToken
 from .. import MechaLanguageServer
 
 
-def validate(ls: MechaLanguageServer, params: lsp.DidChangeTextDocumentParams):
-    ls.show_message("Validating function...")
-
+def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
 
-    diagnostics = validate_function(ls, text_doc.source, text_doc.filename)
+    diagnostics = validate_function(ls, text_doc.source)
 
-    ls.publish_diagnostics(params.text_document.uri, diagnostics)
+    ls.publish_diagnostics(
+        params.text_document.uri,
+        [
+            tokenstream_error_to_lsp_diag(d, type(ls).__name__, text_doc.filename)
+            for d in diagnostics
+        ],
+    )
 
 
 def tokenstream_error_to_lsp_diag(
@@ -27,27 +31,24 @@ def tokenstream_error_to_lsp_diag(
                 line=exec.end_location.lineno - 1, character=exec.end_location.colno - 1
             ),
         ),
-        message=exec.format(filename),
+        message=f"{type(exec).__name__}\n{exec.format(filename)}",
         source=source,
     )
 
 
-def validate_function(ls: MechaLanguageServer, source: str, filename: str | None):
+def validate_function(
+    ls: MechaLanguageServer, source: str
+) -> list[InvalidSyntax]:
     diagnostics = []
     try:
         ast = ls.mecha.parse_function(source)
     except InvalidSyntax as exec:
-        diagnostics.append(
-            tokenstream_error_to_lsp_diag(exec, type(ls).__name__, filename)
-        )
+        ls.send_notification("Failed to parse")
+        diagnostics.append(exec)
 
     else:
         for node in ast.walk():
             if isinstance(node, AstError):
-                diagnostics.append(
-                    tokenstream_error_to_lsp_diag(
-                        node.error, type(ls).__name__, filename
-                    )
-                )
+                diagnostics.append(node.error)
 
     return diagnostics
