@@ -157,10 +157,15 @@ async function startLangServer() {
         return
     }
 
+    const plugins = config.get<string[]>("plugins")
+    if (plugins.length >= 1)
+        plugins.unshift("--plugins")
+
     logger.debug(`python: ${pythonCommand.join(" ")}`)
+
     const serverOptions: ServerOptions = {
         command: 'poetry',
-        args: ['run', 'python', '-m', serverPath],
+        args: ['run', 'python', '-m', serverPath, ...plugins],
         options: { cwd },
     };
 

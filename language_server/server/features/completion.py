@@ -1,6 +1,7 @@
 import logging
 from lsprotocol import types as lsp
 from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha
+from bolt import UndefinedIdentifier
 from tokenstream import UnexpectedEOF, UnexpectedToken
 
 from ...server import MechaLanguageServer
@@ -13,7 +14,7 @@ TOKEN_HINTS: dict[str, list[str]] = {
 }
 
 
-def get_items(mecha: Mecha, token_type: str, value: str | None):
+def get_token_options(mecha: Mecha, token_type: str, value: str | None):
 
     # Use manually defined hints first
     if token_type in TOKEN_HINTS:
@@ -42,15 +43,20 @@ def get_items(mecha: Mecha, token_type: str, value: str | None):
 def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
 
-    diagnostics = validate_function(ls, text_doc.source)
+    items = get_completions(ls, params.position, text_doc.source)
 
-    pos = params.position
+    return lsp.CompletionList(False, items)
+
+def get_completions(ls: MechaLanguageServer, pos: lsp.Position, source: str) -> list[lsp.CompletionItem]:
+    diagnostics = validate_function(ls, source)
+
     items = []
     for diagnostic in diagnostics:
         start = diagnostic.location
         end = diagnostic.end_location
 
         if start.colno <= pos.character + 1 and end.colno >= pos.character:
+            print(diagnostic)
             if isinstance(diagnostic, UnexpectedToken) or isinstance(
                 diagnostic, UnexpectedEOF
             ):
@@ -58,9 +64,14 @@ def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
                     [token_type, value] = (
                         pattern if isinstance(pattern, tuple) else [pattern, None]
                     )
-                    items += get_items(ls.mecha, token_type, value)
+                    items += get_token_options(ls.mecha, token_type, value)
 
                 logging.debug(f"\n\n{diagnostic.expected_patterns}\n\n")
                 break
 
-    return lsp.CompletionList(False, items)
+            if isinstance(diagnostic, UndefinedIdentifier):
+                for name in diagnostic.lexical_scope.variables:
+                    items.append(lsp.CompletionItem(name))
+                    logging.debug(diagnostic.lexical_scope.variables[name])
+                break
+    return items

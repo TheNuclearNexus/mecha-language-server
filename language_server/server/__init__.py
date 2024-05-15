@@ -1,12 +1,12 @@
 import logging
+from mecha import Mecha
 from pygls.server import LanguageServer
 
-from ..mecha import MechaLite
 
 logging.basicConfig(filename='mecha.log', filemode='w', level=logging.DEBUG)
 
 class MechaLanguageServer(LanguageServer):
-    mecha: MechaLite
+    mecha: Mecha
     def __init__(self, *args):
         super().__init__(*args)
-        self.mecha = MechaLite()
+        
