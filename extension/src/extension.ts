@@ -168,8 +168,8 @@ async function startLangServer(context: vscode.ExtensionContext) {
         args: ['run', 'python', '-m', serverPath, ...plugins],
         options: { cwd },
     } : {
-        command: context.asAbsolutePath('language_server.pyz'),
-        args: [...plugins],
+        command: pythonCommand,
+        args: [context.asAbsolutePath('language_server.pyz'), ...plugins],
         options: { cwd },
     };
 
