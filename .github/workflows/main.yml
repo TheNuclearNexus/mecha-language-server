@@ -13,9 +13,7 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
-    defaults:
-        run:
-            working-directory: ./extension
+    
     steps:
     - uses: actions/checkout@v2
     - name: Use Node.js
@@ -24,9 +22,13 @@ jobs:
         node-version: 16.x
         cache: 'npm'
     - run: npm ci
+      working-directory: ./extension
     - run: npm i -g vsce
+      working-directory: ./extension
     - run: vsce package
+      working-directory: ./extension
     - name: Upload a Build Artifact
+      working-directory: ./extension
       uses: actions/upload-artifact@v3.0.0
       with:
         path: '*.vsix'
