@@ -26,7 +26,7 @@ jobs:
       run: poetry install && poetry add shiv
       working-directory: ./language_server
     - name: Shiv language server
-      run: poetry run shiv -c language_server -o ../extension/language-server
+      run: poetry run shiv -c language_server -o ../extension/language-server --site-packages $VIRTUAL_ENV/lib/site-packages
       working-directory: ./language_server
 
     - name: Use Node.js
