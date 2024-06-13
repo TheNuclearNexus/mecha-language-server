@@ -25,7 +25,7 @@ jobs:
     - name: Install language-server
       run: poetry install
     - name: Shiv language server
-      run: poetry run shiv -e language_server:__main__:main -o ./extension/language_server.pyz .
+      run: VENV=$(poetry env info --path) poetry run shiv -e language_server:__main__:main -o ./extension/language_server.pyz $VENV/lib/python3.11/site-packages
 
     - name: Use Node.js
       uses: actions/setup-node@v2
