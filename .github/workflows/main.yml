@@ -19,8 +19,9 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: 16.x
+        node-version: 18.x
         cache: 'npm'
+        cache-dependency-path: extension/package-lock.json
     - run: cd ./extension && npm ci && npm i -g vsce && vsce package
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3.0.0
