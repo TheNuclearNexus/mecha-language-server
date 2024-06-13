@@ -23,9 +23,9 @@ jobs:
     - name: Clone Forks of beet and bolt
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt && git clone https://github.com/TheNuclearNexus/mecha
     - name: Install language-server
-      run: poetry install
+      run: poetry install && pip install numpy
     - name: Shiv language server
-      run: export VENV=$(poetry env info --path) && ls $VENV/bin && poetry run shiv -e language_server:__main__:main -o ./extension/language_server.pyz --site-packages $VENV/lib/python3.11/site-packages
+      run: poetry run shiv -e language_server:__main__:main -o ./extension/language_server.pyz .
 
     - name: Use Node.js
       uses: actions/setup-node@v2
