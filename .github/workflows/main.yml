@@ -23,7 +23,6 @@ jobs:
         cache: 'npm'
     - run: cd ./extension && npm ci && npm i -g vsce && vsce package
     - name: Upload a Build Artifact
-      working-directory: ./extension
       uses: actions/upload-artifact@v3.0.0
       with:
         path: '*.vsix'
