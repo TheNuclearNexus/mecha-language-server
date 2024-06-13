@@ -24,10 +24,8 @@ jobs:
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt && git clone https://github.com/TheNuclearNexus/mecha
     - name: Install language-server
       run: poetry install && poetry add shiv
-      working-directory: ./language_server
     - name: Shiv language server
       run: export POETRY_VENV=$(poetry env info --path) && ls $POETRY_VENV/lib/python3.11 && poetry run shiv -c language_server -o ../extension/language-server --site-packages $POETRY_VENV/lib/python3.11/site-packages
-      working-directory: ./language_server
 
     - name: Use Node.js
       uses: actions/setup-node@v2
