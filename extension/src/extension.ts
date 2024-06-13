@@ -163,9 +163,13 @@ async function startLangServer() {
 
     logger.debug(`python: ${pythonCommand.join(" ")}`)
 
-    const serverOptions: ServerOptions = {
+    const serverOptions: ServerOptions = process.env.DEV ? {
         command: 'poetry',
         args: ['run', 'python', '-m', serverPath, ...plugins],
+        options: { cwd },
+    } : {
+        command: 'language_server.pyz',
+        args: [...plugins],
         options: { cwd },
     };
 
