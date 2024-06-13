@@ -21,12 +21,7 @@ jobs:
       with:
         node-version: 16.x
         cache: 'npm'
-    - run: npm ci
-      working-directory: ./extension
-    - run: npm i -g vsce
-      working-directory: ./extension
-    - run: vsce package
-      working-directory: ./extension
+    - run: cd ./extension && npm ci && npm i -g vsce && vsce package
     - name: Upload a Build Artifact
       working-directory: ./extension
       uses: actions/upload-artifact@v3.0.0
