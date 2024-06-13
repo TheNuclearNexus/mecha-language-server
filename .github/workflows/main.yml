@@ -23,7 +23,10 @@ jobs:
     - name: Clone Forks of beet and bolt
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt && git clone https://github.com/TheNuclearNexus/mecha
     - name: Install language-server
-      run: poetry install && poetry add shiv && poetry run shiv -m language-server -o ../extension/language-server
+      run: poetry install && poetry add shiv
+      working-directory: ./language_server
+    - name: Shiv language server
+      run: poetry run shiv -m language_server -o ../extension/language-server
       working-directory: ./language_server
 
     - name: Use Node.js
