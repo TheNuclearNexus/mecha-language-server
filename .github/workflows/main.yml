@@ -22,7 +22,7 @@ jobs:
     - uses: Gr1N/setup-poetry@v8
     - name: Install language-server
       run: poetry install && poetry run "pip install shiv && shiv -m language-server -o ../extension/language-server"
-      working-directory: ./language-server
+      working-directory: ./language_server
 
     - name: Use Node.js
       uses: actions/setup-node@v2
