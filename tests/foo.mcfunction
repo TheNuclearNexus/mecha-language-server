@@ -1,1 +1,1 @@
-scoreboard objectives add 
+scoreboard objectives 
