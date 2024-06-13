@@ -56,7 +56,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand("mecha.server.restart", async () => {
             logger.info('restarting server...')
-            await startLangServer()
+            await startLangServer(context)
         })
     )
 
@@ -71,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         python.environments.onDidChangeActiveEnvironmentPath(async () => {
             logger.info('python env modified, restarting server...')
-            await startLangServer()
+            await startLangServer(context)
         })
     )
 
@@ -80,7 +80,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeConfiguration(async (event) => {
             if (event.affectsConfiguration("mecha.server") || event.affectsConfiguration("mecha.client")) {
                 logger.info('config modified, restarting server...')
-                await startLangServer()
+                await startLangServer(context)
             }
         })
     )
@@ -90,7 +90,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidOpenTextDocument(
             async () => {
                 if (!client) {
-                    await startLangServer()
+                    await startLangServer(context)
                 }
             }
         )
@@ -101,7 +101,7 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidOpenNotebookDocument(
             async () => {
                 if (!client) {
-                    await startLangServer()
+                    await startLangServer(context)
                 }
             }
         )
@@ -114,7 +114,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
             if (expectedUri.toString() === document.uri.toString()) {
                 logger.info('server modified, restarting...')
-                await startLangServer()
+                await startLangServer(context)
             }
         })
     )
@@ -132,7 +132,7 @@ export function deactivate(): Thenable<void> {
  * @param cwd The working directory in which to run the executable
  * @returns
  */
-async function startLangServer() {
+async function startLangServer(context: vscode.ExtensionContext) {
 
     // Don't interfere if we are already in the process of launching the server.
     if (clientStarting) {
@@ -168,7 +168,7 @@ async function startLangServer() {
         args: ['run', 'python', '-m', serverPath, ...plugins],
         options: { cwd },
     } : {
-        command: 'language_server.pyz',
+        command: context.asAbsolutePath('language_server.pyz'),
         args: [...plugins],
         options: { cwd },
     };
