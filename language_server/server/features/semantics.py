@@ -157,6 +157,6 @@ def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     mecha = ls.get_mecha(text_doc)
     ast, diagnostics = get_compilation_data(ls, mecha, text_doc)
 
-    data = walk(ast)
+    data = walk(ast) if ast else []
     logging.debug(data)
     return lsp.SemanticTokens(data=data)

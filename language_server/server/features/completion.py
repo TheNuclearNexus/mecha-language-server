@@ -6,7 +6,7 @@ from tokenstream import UnexpectedEOF, UnexpectedToken
 from pygls.workspace import TextDocument
 
 from ...server import MechaLanguageServer
-from .validate import validate_function
+from .validate import get_compilation_data, validate_function
 from mecha.ast import AstError
 
 TOKEN_HINTS: dict[str, list[str]] = {
@@ -50,7 +50,7 @@ def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     return lsp.CompletionList(False, items)
 
 def get_completions(ls: MechaLanguageServer, mecha: Mecha, pos: lsp.Position, text_doc: TextDocument) -> list[lsp.CompletionItem]:
-    diagnostics = validate_function(ls, mecha, text_doc)
+    _, diagnostics = get_compilation_data(ls, mecha, text_doc)
 
     items = []
     for diagnostic in diagnostics:

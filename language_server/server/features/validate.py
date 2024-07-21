@@ -67,6 +67,7 @@ def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocum
     try:
         ast = parse_function(mecha, text_doc.source)
     except InvalidSyntax as exec:
+        ast = None
         ls.send_notification("Failed to parse")
         logging.error(f"Failed to parse: {exec}")
         diagnostics.append(exec)
