@@ -3,6 +3,7 @@ from lsprotocol import types as lsp
 from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha
 from bolt import UndefinedIdentifier
 from tokenstream import UnexpectedEOF, UnexpectedToken
+from pygls.workspace import TextDocument
 
 from ...server import MechaLanguageServer
 from .validate import validate_function
@@ -42,13 +43,14 @@ def get_token_options(mecha: Mecha, token_type: str, value: str | None):
 
 def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
+    mecha = ls.get_mecha(text_doc)
 
-    items = get_completions(ls, params.position, text_doc.source)
+    items = get_completions(ls, mecha, params.position, text_doc)
 
     return lsp.CompletionList(False, items)
 
-def get_completions(ls: MechaLanguageServer, pos: lsp.Position, source: str) -> list[lsp.CompletionItem]:
-    diagnostics = validate_function(ls, source)
+def get_completions(ls: MechaLanguageServer, mecha: Mecha, pos: lsp.Position, text_doc: TextDocument) -> list[lsp.CompletionItem]:
+    diagnostics = validate_function(ls, mecha, text_doc)
 
     items = []
     for diagnostic in diagnostics:
@@ -56,7 +58,6 @@ def get_completions(ls: MechaLanguageServer, pos: lsp.Position, source: str) -> 
         end = diagnostic.end_location
 
         if start.colno <= pos.character + 1 and end.colno >= pos.character:
-            print(diagnostic)
             if isinstance(diagnostic, UnexpectedToken) or isinstance(
                 diagnostic, UnexpectedEOF
             ):
@@ -64,7 +65,7 @@ def get_completions(ls: MechaLanguageServer, pos: lsp.Position, source: str) -> 
                     [token_type, value] = (
                         pattern if isinstance(pattern, tuple) else [pattern, None]
                     )
-                    items += get_token_options(ls.mecha, token_type, value)
+                    items += get_token_options(mecha, token_type, value)
 
                 logging.debug(f"\n\n{diagnostic.expected_patterns}\n\n")
                 break

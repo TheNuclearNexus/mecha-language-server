@@ -1,2 +1,4 @@
 foo: int = 1
 foo += 2
+
+function ~/hi

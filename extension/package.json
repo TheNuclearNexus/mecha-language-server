@@ -32,7 +32,6 @@
       }
     ],
     "configuration": [
-     
       {
         "type": "object",
         "title": "Server Configuration",
@@ -93,7 +92,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p .",
-    "watch": "tsc -p . -w"
+    "watch": "tsc -p . -w",
+    "package": "npm run vscode:prepublish && vsce package"
   },
   "devDependencies": {
     "@types/node": "^16.11.6",
@@ -102,11 +102,15 @@
     "@typescript-eslint/eslint-plugin": "^5.3.0",
     "@typescript-eslint/parser": "^5.3.0",
     "eslint": "^8.2.0",
-    "typescript": "^5.1.0"
+    "typescript": "^5.1.0",
+    "vsce": "^2.15.0"
   },
   "dependencies": {
     "@vscode/python-extension": "^1.0.4",
     "semver": "^7.5.4",
     "vscode-languageclient": "^8.1.0"
+  },
+  "prettier": {
+    "tabWidth": 4
   }
 }

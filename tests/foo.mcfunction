@@ -1,1 +1,1 @@
-scoreboard objectives 
+scoreboard players add @a 

@@ -3,17 +3,18 @@ import traceback
 from typing import Any
 from beet import Function, TextFileBase
 from lsprotocol import types as lsp
-from mecha import AstRoot, CompilationUnit
+from mecha import AstRoot, CompilationUnit, Mecha
 from mecha.ast import AstError
 from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
+from pygls.workspace import TextDocument
 
 from .. import MechaLanguageServer
 
-
 def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
+    mecha = ls.get_mecha(text_doc)
 
-    diagnostics = validate_function(ls, text_doc.source)
+    diagnostics = validate_function(ls, mecha, text_doc)
     diagnostics = [
         tokenstream_error_to_lsp_diag(d, type(ls).__name__, text_doc.filename)
         for d in diagnostics
@@ -50,10 +51,21 @@ def tokenstream_error_to_lsp_diag(
     )
 
 
-def validate_function(ls: MechaLanguageServer, source: str) -> list[InvalidSyntax]:
+COMPILATION_RESULTS: dict[str, tuple[AstRoot, tuple[InvalidSyntax]]] = {}
+
+def get_compilation_data(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument):
+    if text_doc.uri in COMPILATION_RESULTS:
+        return COMPILATION_RESULTS[text_doc.uri]
+    
+    validate_function(ls, mecha, text_doc)
+    return COMPILATION_RESULTS[text_doc.uri]
+    
+
+
+def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument) -> list[InvalidSyntax]:
     diagnostics = []
     try:
-        ast = parse_function(ls, source)
+        ast = parse_function(mecha, text_doc.source)
     except InvalidSyntax as exec:
         ls.send_notification("Failed to parse")
         logging.error(f"Failed to parse: {exec}")
@@ -63,24 +75,25 @@ def validate_function(ls: MechaLanguageServer, source: str) -> list[InvalidSynta
             if isinstance(node, AstError):
                 diagnostics.append(node.error)
 
+    COMPILATION_RESULTS[text_doc.uri] = (ast, tuple(diagnostics))
+
     return diagnostics
 
 
 def parse_function(
-    ls: MechaLanguageServer, function: TextFileBase[Any] | list[str] | str
+    mecha: Mecha, function: TextFileBase[Any] | list[str] | str
 ) -> AstRoot:
     if not isinstance(function, TextFileBase):
         function = Function(function)
 
     stream = TokenStream(
         source=function.text,
-        preprocessor=ls.mecha.preprocessor,
+        preprocessor=mecha.preprocessor,
     )
 
-    mecha = ls.mecha
     mecha.database.current = function
     mecha.database[function] = CompilationUnit(resource_location="lsp:current")
 
-    ast = mecha.parse_stream(ls.mecha.spec.multiline, None, AstRoot.parser, stream)
+    ast = mecha.parse_stream(mecha.spec.multiline, None, AstRoot.parser, stream)
 
     return ast
