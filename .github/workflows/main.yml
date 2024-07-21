@@ -26,11 +26,7 @@ jobs:
         python-version: "3.11"
     - uses: Gr1N/setup-poetry@v8
     - name: Clone Forks of beet and bolt
-      run: |
-        cd ../
-        && git clone https://github.com/TheNuclearNexus/bolt 
-        && git clone https://github.com/TheNuclearNexus/mecha
-        && git clone https://github.com/TheNuclearNexus/beet
+      run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
     - name: Install language-server
       run: poetry install && pip install numpy
     - name: Shiv language server
