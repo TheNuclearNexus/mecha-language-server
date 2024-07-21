@@ -34,8 +34,8 @@ def tokenstream_error_to_lsp_diag(
     if isinstance(exec, UnexpectedToken):
         range = [exec.token.location, exec.token.end_location]
     
-    # trace = '\n'.join(traceback.format_tb(exec.__traceback__))
-    # logging.debug(trace)
+    trace = '\n'.join(traceback.format_tb(exec.__traceback__))
+    logging.debug(trace)
 
     return lsp.Diagnostic(
         range=lsp.Range(
@@ -71,6 +71,9 @@ def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocum
         ls.send_notification("Failed to parse")
         logging.error(f"Failed to parse: {exec}")
         diagnostics.append(exec)
+    except Exception as exec:
+        logging.error(F"{exec}")
+
     else:
         for node in ast.walk():
             if isinstance(node, AstError):
@@ -96,5 +99,4 @@ def parse_function(
     mecha.database[function] = CompilationUnit(resource_location="lsp:current")
 
     ast = mecha.parse_stream(mecha.spec.multiline, None, AstRoot.parser, stream)
-
     return ast
