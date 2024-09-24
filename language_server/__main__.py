@@ -1,14 +1,11 @@
 import argparse
 import logging
-from beet import PackLoadOptions, ProjectConfig, load_config, run_beet
-from bolt import Runtime
 from lsprotocol import types as lsp
-from mecha import Mecha
 
 from language_server.server.features.semantics import TOKEN_TYPE_LIST, semantic_tokens
 
 from .server import MechaLanguageServer
-from .server.features import validate, validate_function, completion
+from .server.features import validate, completion
 from . import mecha_server
 
 
@@ -55,13 +52,15 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--ws", action="store_true", help="Use WebSocket server")
     parser.add_argument("--host", default="127.0.0.1", help="Bind to this address")
     parser.add_argument("--port", type=int, default=2087, help="Bind to this port")
-
+    parser.add_argument("--site", type=str, default=[], nargs="*", help="Sites to look for python packages")
 
 def main():
     print("Starting Mecha LS")
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
+
+    mecha_server.set_sites(args.site)
 
     if args.tcp:
         mecha_server.start_tcp(args.host, args.port)

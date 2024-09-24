@@ -8,7 +8,7 @@ from mecha.ast import AstError
 from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
-from .. import MechaLanguageServer
+from .. import COMPILATION_RESULTS, MechaLanguageServer
 
 def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
@@ -51,7 +51,6 @@ def tokenstream_error_to_lsp_diag(
     )
 
 
-COMPILATION_RESULTS: dict[str, tuple[AstRoot, tuple[InvalidSyntax]]] = {}
 
 def get_compilation_data(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument):
     if text_doc.uri in COMPILATION_RESULTS:
@@ -64,6 +63,8 @@ def get_compilation_data(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDo
 
 def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument) -> list[InvalidSyntax]:
     diagnostics = []
+    ast = None
+    logging.debug(f"Parsing function:\n{text_doc.source}")
     try:
         ast = parse_function(mecha, text_doc.source)
     except InvalidSyntax as exec:
@@ -71,8 +72,12 @@ def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocum
         ls.send_notification("Failed to parse")
         logging.error(f"Failed to parse: {exec}")
         diagnostics.append(exec)
+
+    except KeyError as exec:
+        tb = '\n'.join(traceback.format_tb(exec.__traceback__))
+        logging.error(f"{tb}")
     except Exception as exec:
-        logging.error(F"{exec}")
+        logging.error(F"{type(exec)}: {exec}")
 
     else:
         for node in ast.walk():

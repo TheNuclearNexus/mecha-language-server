@@ -33,6 +33,7 @@ import {
     URI,
     integer,
 } from "vscode-languageclient/node";
+import { exec } from "child_process";
 
 const MIN_PYTHON = semver.parse("3.7.9");
 
@@ -188,11 +189,18 @@ async function startLangServer(context: vscode.ExtensionContext) {
         return;
     }
 
-    const args = []
+    const args: string[] = []
+
+
+    const sites = await getSitePackages(pythonCommand[0]);
+    if (sites.length > 0) {
+        args.push("--site")
+        args.push(...sites)
+    }
 
     logger.debug(`python: ${pythonCommand.join(" ")}`);
 
-    const serverOptions: ServerOptions = process.env.DEV
+    const serverOptions: ServerOptions = process.env.DEV == "true"
         ? {
               command: "poetry",
               args: ["run", "python", "-m", serverPath, ...args],
@@ -225,6 +233,31 @@ async function startLangServer(context: vscode.ExtensionContext) {
     }
 
     logger.debug("server has started");
+}
+
+async function getSitePackages(pythonCommand: string): Promise<string[]> {
+    logger.debug("Getting python site packages...");
+    try {
+        const json = await new Promise<string>((resolve, reject) => {
+            exec(
+                `${pythonCommand} -c "import site; import json;  print(json.dumps(site.getsitepackages()))"`,
+                (error, stdout, stderr) => {
+                    if (error) return reject(error);
+
+                    return resolve(stdout);
+                }
+            );
+        });
+
+        logger.debug("Received", json)
+
+        const data = JSON.parse(json);
+        if (data instanceof Array) return data;
+        return [];
+    } catch (e) {
+        logger.error(e);
+        return [];
+    }
 }
 
 async function stopLangServer(): Promise<void> {
