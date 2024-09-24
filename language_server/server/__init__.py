@@ -1,32 +1,30 @@
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
-from dataclasses import dataclass, fields
-import functools
-import importlib
 import logging
 import sys
-from tempfile import TemporaryDirectory
-from types import MethodType
-from typing import Any, Iterator, List, Type
+from typing import Iterator, List
 from beet import (
     Context,
     GenericPlugin,
-    PackLoadOptions,
     PluginSpec,
     Project,
     ProjectBuilder,
+    ProjectConfig,
     Task,
     load_config,
-    run_beet,
     PluginError,
     Pipeline,
 )
 from beet.library.base import LATEST_MINECRAFT_VERSION
 from beet.toolchain.template import TemplateManager
-from beet.core.utils import import_from_string, normalize_string, change_directory
-from beet.toolchain.context import NamespaceFileType
+from beet.core.utils import (
+    normalize_string,
+    change_directory,
+    local_import_path,
+)
 
-from bolt import Module, Runtime
+from beet.contrib.load import load
+
 from mecha import AstRoot, Mecha, DiagnosticErrorSummary
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
@@ -44,36 +42,47 @@ CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
 COMPILATION_RESULTS: dict[str, tuple[AstRoot, tuple[InvalidSyntax]]] = {}
 
 
+class PipelineShadow(Pipeline):
+    def require(self, *args: GenericPlugin[Context] | str):
+        for spec in args:
+            plugin = self.resolve(spec)
+            if plugin in self.plugins:
+                continue
+
+            self.plugins.add(plugin)
+
+            # Advance the plugin only once, ignore remaining work
+            # Most setup happens in the first half of the plugin
+            # where side effects happen in the latter
+            logging.debug(f"Advanced {plugin}")
+            Task(plugin).advance(self.ctx)
+
+
+# We use this shadow of context in order to route calls to `ctx`
+# to our own methods, this allows us to bypass side effects without
+# having to break plugins
 class ContextShadow(Context):
-    def _require(self, *args: PluginSpec):
-        logging.debug(f"require {args}")
-        plugins = []
-        for arg in args:
-            plugins.append(get_enter_phase(arg))
-
-        super().require(*plugins)
-
     def require(self, *args: PluginSpec):
-        self._require(*args)
+        """Execute the specified plugin."""
+        self.inject(PipelineShadow).require(*args)
 
-
-def execute_enter_phase(plugin: GenericPlugin, ctx: Context):
-    Task(plugin).advance(ctx)
-
-    return
-
-
-def get_enter_phase(arg: PluginSpec):
-    plugin: GenericPlugin = (
-        import_from_string(arg, "beet_default", None) if isinstance(arg, str) else arg
-    )
-
-    execute = functools.partial(execute_enter_phase, plugin)
-    return execute
+    @contextmanager
+    def activate(self):
+        """Push the context directory to sys.path and handle cleanup to allow module reloading."""
+        with local_import_path(str(self.directory.resolve())), self.cache:
+            yield self.inject(PipelineShadow)
 
 
 class ProjectBuilderShadow(ProjectBuilder):
+    def bootstrap(self, ctx: Context):
+        """Plugin that handles the project configuration."""
+        plugins = self.config.require
 
+        for plugin in plugins:
+            ctx.require(plugin)
+
+    # This stripped down version of build only handles loading the plugins from config
+    # all other operations are gone such as linking
     @contextmanager
     def build(self) -> Iterator[Context]:
         """Create the context, run the pipeline, and return the context."""
@@ -81,11 +90,9 @@ class ProjectBuilderShadow(ProjectBuilder):
             name = self.config.name or self.project.directory.stem
             meta = deepcopy(self.config.meta)
 
-        
             tmpdir = None
             cache = self.project.cache
 
-        
             ctx = ContextShadow(
                 project_id=self.config.id or normalize_string(name),
                 project_name=name,
@@ -106,39 +113,66 @@ class ProjectBuilderShadow(ProjectBuilder):
                 whitelist=self.config.whitelist,
             )
 
-            plugins: List[PluginSpec] = [self.bootstrap]
-            plugins.extend(
-                (
-                    item
-                    if isinstance(item, str)
-                    else ProjectBuilder(
-                        Project(
-                            resolved_config=item,
-                            resolved_cache=ctx.cache,
-                            resolved_worker_pool=self.project.worker_pool,
-                        )
-                    )
-                )
-                for item in self.config.pipeline
-            )
+            
+
+            pipelined_plugin: List[PluginSpec] = [self.bootstrap]
+
+            for item in self.config.pipeline:
+
+                if item == "mecha" or not isinstance(item, str):
+                    continue
+
+                logging.debug(f"Adding pipline {item}")
+                pipelined_plugin.append(item)
 
             with change_directory(tmpdir):
-                pipeline = stack.enter_context(ctx.activate())
-                pipeline.run(plugins)
+                for plugin in pipelined_plugin:
+                    logging.debug(f"running pipeline: {plugin}")
+                    ctx.require(plugin)
+                # pipeline = stack.enter_context(ctx.activate())
+                # pipeline.run(plugins)
+            
+            # Load everything into context *after* the first half of the plugins
+            # are ran by the pipeline
+            load(
+                resource_pack=self.config.resource_pack.load,
+                data_pack=self.config.data_pack.load,
+            )(ctx)
 
+            logging.debug(ctx.data.extend_namespace)
+            for type in ctx.data.extend_namespace:
+                logging.debug(ctx.data[type])
+            
             yield ctx
 
 
+def create_context(config: ProjectConfig, config_path: Path) -> Context: 
+    project = Project(config, None, config_path)
+    with ProjectBuilderShadow(project, root=True).build() as ctx:
+        mc = ctx.inject(Mecha)
+
+        # for mod in ctx.data[Module]:
+        #     logging.debug(mod)
+
+        logging.debug(f"Mecha created for {config_path} successfully")
+        for pack in ctx.packs:
+            for provider in mc.providers:
+                for file_instance, compilation_unit in provider(pack, mc.match):
+                    logging.debug(f"Enqueued {compilation_unit.resource_location}")
+                    mc.database[file_instance] = compilation_unit
+                    mc.database.enqueue(file_instance)
+
+        return ctx
+    return None
+
+        
 def create_instance(
     config_path: Path, sites: list[str]
-) -> tuple[Context, Mecha] | None:
+) -> Context | None:
     config = load_config(config_path)
     logging.debug(config)
     # Ensure that we aren't loading in all project files
     config.output = None
-
-    if "mecha" not in config.pipeline:
-        config.pipeline.insert(0, "mecha")
 
     config.pipeline = list(filter(lambda p: isinstance(p, str), config.pipeline))
 
@@ -150,28 +184,11 @@ def create_instance(
 
     os.chdir(config_path.parent)
 
-    require = []
-
-    for name in config.require:
-        execute = get_enter_phase(name)
-        require.append(execute)
-
-    config.require = require
-
-    project = Project(config, None, config_path)
 
     instance = None
 
     try:
-        with ProjectBuilderShadow(project, root=True).build() as ctx:
-            logging.error("Failed to stop pipeline!")
-
-            instance = (ctx, ctx.inject(Mecha))
-
-            for mod in ctx.data[Module]:
-                logging.debug(mod)
-
-            logging.debug(f"Mecha created for {config_path} successfully")
+        instance = create_context(config, config_path)
 
     except PluginError as plugin_error:
         logging.error(plugin_error.__cause__)
@@ -191,7 +208,7 @@ def create_instance(
 
 
 class MechaLanguageServer(LanguageServer):
-    instances: dict[Path, tuple[Context, Mecha]]
+    instances: dict[Path, Context]
     _sites: list[str] = []
 
     def set_sites(self, sites: list[str]):
@@ -227,7 +244,7 @@ class MechaLanguageServer(LanguageServer):
         norm_path = Path(norm_path)
         return norm_path
 
-    def get_mecha(self, document: TextDocument):
+    def get_context(self, document: TextDocument):
         doc_path = Path(document.path)
 
         parents: list[Path] = []
@@ -245,11 +262,5 @@ class MechaLanguageServer(LanguageServer):
             self.instances[parents[-1]] = instance
 
         if instance is not None:
-            ctx = instance[0]
-            for mod in ctx.data[Module]:
-                logging.debug(mod)
-
-            logging.debug(ctx.inject(Runtime).modules.database)
-
-            return instance[1]
+            return instance
         return None

@@ -154,8 +154,8 @@ def walk(root: AstNode):
 
 def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    mecha = ls.get_mecha(text_doc)
-    ast, diagnostics = get_compilation_data(ls, mecha, text_doc)
+    ctx = ls.get_context(text_doc)
+    ast, diagnostics = get_compilation_data(ls, ctx, text_doc)
 
     data = walk(ast) if ast else []
     logging.debug(data)

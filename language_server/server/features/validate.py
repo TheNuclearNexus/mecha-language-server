@@ -1,7 +1,7 @@
 import logging
 import traceback
 from typing import Any
-from beet import Function, TextFileBase
+from beet import Context, Function, TextFileBase
 from lsprotocol import types as lsp
 from mecha import AstRoot, CompilationUnit, Mecha
 from mecha.ast import AstError
@@ -12,9 +12,9 @@ from .. import COMPILATION_RESULTS, MechaLanguageServer
 
 def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    mecha = ls.get_mecha(text_doc)
+    ctx = ls.get_context(text_doc)
 
-    diagnostics = validate_function(ls, mecha, text_doc)
+    diagnostics = validate_function(ls, ctx, text_doc)
     diagnostics = [
         tokenstream_error_to_lsp_diag(d, type(ls).__name__, text_doc.filename)
         for d in diagnostics
@@ -52,21 +52,21 @@ def tokenstream_error_to_lsp_diag(
 
 
 
-def get_compilation_data(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument):
+def get_compilation_data(ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument):
     if text_doc.uri in COMPILATION_RESULTS:
         return COMPILATION_RESULTS[text_doc.uri]
     
-    validate_function(ls, mecha, text_doc)
+    validate_function(ls, ctx, text_doc)
     return COMPILATION_RESULTS[text_doc.uri]
     
 
 
-def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocument) -> list[InvalidSyntax]:
+def validate_function(ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument) -> list[InvalidSyntax]:
     diagnostics = []
     ast = None
     logging.debug(f"Parsing function:\n{text_doc.source}")
     try:
-        ast = parse_function(mecha, text_doc.source)
+        ast = parse_function(ctx, text_doc.source)
     except InvalidSyntax as exec:
         ast = None
         ls.send_notification("Failed to parse")
@@ -90,8 +90,11 @@ def validate_function(ls: MechaLanguageServer, mecha: Mecha, text_doc: TextDocum
 
 
 def parse_function(
-    mecha: Mecha, function: TextFileBase[Any] | list[str] | str
+    ctx: Context, function: TextFileBase[Any] | list[str] | str
 ) -> AstRoot:
+    mecha = ctx.inject(Mecha)
+
+
     if not isinstance(function, TextFileBase):
         function = Function(function)
 
@@ -101,7 +104,7 @@ def parse_function(
     )
 
     mecha.database.current = function
-    mecha.database[function] = CompilationUnit(resource_location="lsp:current")
+    mecha.database[function] = CompilationUnit(resource_location="lsp:current", pack=ctx.data)
 
     ast = mecha.parse_stream(mecha.spec.multiline, None, AstRoot.parser, stream)
     return ast

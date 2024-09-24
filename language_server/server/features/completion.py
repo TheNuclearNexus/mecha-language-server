@@ -1,4 +1,5 @@
 import logging
+from beet import Context
 from lsprotocol import types as lsp
 from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha
 from bolt import UndefinedIdentifier
@@ -6,7 +7,7 @@ from tokenstream import UnexpectedEOF, UnexpectedToken
 from pygls.workspace import TextDocument
 
 from ...server import MechaLanguageServer
-from .validate import get_compilation_data, validate_function
+from .validate import get_compilation_data
 from mecha.ast import AstError
 
 TOKEN_HINTS: dict[str, list[str]] = {
@@ -16,7 +17,6 @@ TOKEN_HINTS: dict[str, list[str]] = {
 
 
 def get_token_options(mecha: Mecha, token_type: str, value: str | None):
-
     # Use manually defined hints first
     if token_type in TOKEN_HINTS:
         return [lsp.CompletionItem(k) for k in TOKEN_HINTS[token_type]]
@@ -43,14 +43,15 @@ def get_token_options(mecha: Mecha, token_type: str, value: str | None):
 
 def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    mecha = ls.get_mecha(text_doc)
+    ctx = ls.get_context(text_doc)
 
-    items = get_completions(ls, mecha, params.position, text_doc)
+    items = get_completions(ls, ctx, params.position, text_doc)
 
     return lsp.CompletionList(False, items)
 
-def get_completions(ls: MechaLanguageServer, mecha: Mecha, pos: lsp.Position, text_doc: TextDocument) -> list[lsp.CompletionItem]:
-    _, diagnostics = get_compilation_data(ls, mecha, text_doc)
+def get_completions(ls: MechaLanguageServer, ctx: Context, pos: lsp.Position, text_doc: TextDocument) -> list[lsp.CompletionItem]:
+    mecha = ctx.inject(Mecha)
+    _, diagnostics = get_compilation_data(ls, ctx, text_doc)
 
     items = []
     for diagnostic in diagnostics:

@@ -34,6 +34,7 @@ import {
     integer,
 } from "vscode-languageclient/node";
 import { exec } from "child_process";
+import { log } from "console";
 
 const MIN_PYTHON = semver.parse("3.7.9");
 
@@ -199,7 +200,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
     }
 
     logger.debug(`python: ${pythonCommand.join(" ")}`);
-
+    logger.debug(process.env.DEV)
     const serverOptions: ServerOptions = process.env.DEV == "true"
         ? {
               command: "poetry",
