@@ -4,6 +4,7 @@ from typing import Any
 
 from bolt import (
     AstAssignment,
+    AstDict,
     AstExpression,
     AstExpressionBinary,
     AstIdentifier,
@@ -57,6 +58,8 @@ class Indexer(MutatingReducer):
             match (expression):
                 case AstValue() as value:
                     type_annotation = type(value.value)
+                case AstDict() as _dict:
+                    type_annotation = dict
 
             if type_annotation:
                 annotations.append(type_annotation)

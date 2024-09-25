@@ -2,6 +2,6 @@ from mecha import delegate
 
 type(delegate)
 
-foo: int|str|float = 0
-foo
-fo = 
+foo = 0
+foo = {}
+fo
