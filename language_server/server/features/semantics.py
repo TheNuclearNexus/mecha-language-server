@@ -3,7 +3,7 @@ import logging
 from lsprotocol import types as lsp
 from mecha import AstCommand, AstNode, AstResourceLocation
 from mecha.contrib.nested_location import AstNestedLocation
-
+from bolt import AstTargetIdentifier
 from bolt import (
     AstAssignment,
     AstCall,
@@ -52,7 +52,7 @@ TOKEN_TYPES = {TOKEN_TYPE_LIST[i]: i for i in range(len(TOKEN_TYPE_LIST))}
 # 4: modifier bitflag
 
 
-def token(node: AstNode, type, modifier, prev_node: tuple[AstNode, tuple[int]] | None):
+def node_to_token(node: AstNode, type: int, modifier: int, prev_node: tuple[AstNode, tuple[int]] | None) -> tuple[int, ...]:
     line_offset = node.location.lineno - 1
     col_offset = node.location.colno - 1
     length = node.end_location.pos - node.location.pos
@@ -64,7 +64,6 @@ def token(node: AstNode, type, modifier, prev_node: tuple[AstNode, tuple[int]] |
             col_offset -= prev_node[1][1]
 
     token = (line_offset, col_offset, length, type, modifier)
-    logging.debug(f"adding {node} as {type}:{modifier}: {token}")
     return token
 
 
@@ -92,53 +91,7 @@ def walk(root: AstNode):
 
     for node in root.walk():
         logging.debug(node)
-        match node:
-            case AstFromImport() as from_import:
-                location: AstResourceLocation = from_import.arguments[0]
-                imports: tuple[AstImportedItem] = from_import.arguments[1:]
-
-                nodes.append(
-                    (
-                        location,
-                        TOKEN_TYPES[
-                            "class" if location.namespace == None else "function"
-                        ],
-                        0,
-                    )
-                )
-
-                for i in imports:
-                    logging.debug(f"{i.location}, {i.end_location}")
-                    nodes.append(
-                        (i, TOKEN_TYPES["variable" if i.identifier else "class"], 0)
-                    )
-            case AstCommand() as command:
-                parse_command(nodes, command)
-            case AstAssignment() as assignment:
-                operator = assignment.operator
-
-                nodes.append((assignment.target, TOKEN_TYPES["variable"], 0))
-
-                if assignment.type_annotation != None:
-                    nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
-            case AstCall() as call:
-                function = call.value
-
-                nodes.append((function, TOKEN_TYPES["function"], 0))
-
-            case AstFunctionSignature() as signature:
-                location: SourceLocation = signature.location
-                node = AstNode(
-                    location=location,
-                    end_location=SourceLocation(
-                        location.pos + len(signature.name),
-                        location.lineno,
-                        location.colno + len(signature.name),
-                    ),
-                )
-                nodes.append((node, TOKEN_TYPES["function"], 0))
-            case AstNestedLocation() as nested_location:
-                nodes.append((nested_location, TOKEN_TYPES["function"], 0))
+        get_token_type(nodes, node)
 
     tokens: list[tuple[int]] = []
     for i in range(len(nodes)):
@@ -147,16 +100,79 @@ def walk(root: AstNode):
             prev_node = (nodes[i - 1][0], tokens[i - 1])
 
         node, type, modifier = nodes[i]
-        tokens.append(token(node, type, modifier, prev_node))
+        tokens.append(node_to_token(node, type, modifier, prev_node))
 
     return list(sum(tokens, ()))
+
+
+def get_token_type(nodes: list[tuple[AstNode, int, int]], node: AstNode):
+    match node:
+        case AstFromImport() as from_import:
+            handle_from_import(nodes, from_import)
+
+        case AstCommand() as command:
+            parse_command(nodes, command)
+
+        case AstAssignment() as assignment:
+            handle_assignment(nodes, assignment)
+
+        case AstCall() as call:
+            function = call.value
+            nodes.append((function, TOKEN_TYPES["function"], 0))
+
+        case AstFunctionSignature() as signature:
+            handle_function_sig(nodes, signature)
+        case AstNestedLocation() as nested_location:
+            nodes.append((nested_location, TOKEN_TYPES["function"], 0))
+
+
+def handle_function_sig(
+    nodes: list[tuple[AstNode, int, int]], signature: AstFunctionSignature
+):
+    location: SourceLocation = signature.location
+    node = AstNode(
+        location=location,
+        end_location=SourceLocation(
+            location.pos + len(signature.name),
+            location.lineno,
+            location.colno + len(signature.name),
+        ),
+    )
+    nodes.append((node, TOKEN_TYPES["function"], 0))
+
+
+def handle_assignment(nodes: list[tuple[AstNode, int, int]], assignment: AstAssignment):
+    operator = assignment.operator
+
+    nodes.append((assignment.target, TOKEN_TYPES["variable"], 0))
+
+    if assignment.type_annotation != None:
+        nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
+
+
+def handle_from_import(
+    nodes: list[tuple[AstNode, int, int]], from_import: AstFromImport
+):
+    location: AstResourceLocation = from_import.arguments[0]
+    imports: tuple[AstImportedItem] = from_import.arguments[1:]
+
+    nodes.append(
+        (
+            location,
+            TOKEN_TYPES["class" if location.namespace == None else "function"],
+            0,
+        )
+    )
+
+    for i in imports:
+        logging.debug(f"{i.location}, {i.end_location}")
+        nodes.append((i, TOKEN_TYPES["variable" if i.identifier else "class"], 0))
 
 
 def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     ctx = ls.get_context(text_doc)
-    ast, diagnostics = get_compilation_data(ls, ctx, text_doc)
+    ast, _ = get_compilation_data(ls, ctx, text_doc)
 
     data = walk(ast) if ast else []
-    logging.debug(data)
     return lsp.SemanticTokens(data=data)

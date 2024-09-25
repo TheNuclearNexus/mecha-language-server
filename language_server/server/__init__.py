@@ -36,6 +36,8 @@ from urllib.request import url2pathname
 
 from tokenstream import InvalidSyntax
 
+from language_server.server.indexing import Indexer
+
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
@@ -54,7 +56,6 @@ class PipelineShadow(Pipeline):
             # Advance the plugin only once, ignore remaining work
             # Most setup happens in the first half of the plugin
             # where side effects happen in the latter
-            logging.debug(f"Advanced {plugin}")
             Task(plugin).advance(self.ctx)
 
 
@@ -122,12 +123,10 @@ class ProjectBuilderShadow(ProjectBuilder):
                 if item == "mecha" or not isinstance(item, str):
                     continue
 
-                logging.debug(f"Adding pipline {item}")
                 pipelined_plugin.append(item)
 
             with change_directory(tmpdir):
                 for plugin in pipelined_plugin:
-                    logging.debug(f"running pipeline: {plugin}")
                     ctx.require(plugin)
                 # pipeline = stack.enter_context(ctx.activate())
                 # pipeline.run(plugins)
@@ -139,10 +138,6 @@ class ProjectBuilderShadow(ProjectBuilder):
                 data_pack=self.config.data_pack.load,
             )(ctx)
 
-            logging.debug(ctx.data.extend_namespace)
-            for type in ctx.data.extend_namespace:
-                logging.debug(ctx.data[type])
-            
             yield ctx
 
 
@@ -151,6 +146,8 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
     with ProjectBuilderShadow(project, root=True).build() as ctx:
         mc = ctx.inject(Mecha)
 
+        logging.debug(mc.steps)
+
         # for mod in ctx.data[Module]:
         #     logging.debug(mod)
 
@@ -158,7 +155,6 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
         for pack in ctx.packs:
             for provider in mc.providers:
                 for file_instance, compilation_unit in provider(pack, mc.match):
-                    logging.debug(f"Enqueued {compilation_unit.resource_location}")
                     mc.database[file_instance] = compilation_unit
                     mc.database.enqueue(file_instance)
 

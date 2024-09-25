@@ -8,6 +8,8 @@ from mecha.ast import AstError
 from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
+from language_server.server.indexing import Indexer
+
 from .. import COMPILATION_RESULTS, MechaLanguageServer
 
 def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
@@ -107,4 +109,4 @@ def parse_function(
     mecha.database[function] = CompilationUnit(resource_location="lsp:current", pack=ctx.data)
 
     ast = mecha.parse_stream(mecha.spec.multiline, None, AstRoot.parser, stream)
-    return ast
+    return Indexer()(ast)
