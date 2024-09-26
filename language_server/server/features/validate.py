@@ -12,10 +12,18 @@ from pygls.workspace import TextDocument
 
 from language_server.server.indexing import Indexer
 
-from .. import COMPILATION_RESULTS, PATH_TO_RESOURCE, CompiledDocument, MechaLanguageServer
+from .. import (
+    COMPILATION_RESULTS,
+    PATH_TO_RESOURCE,
+    CompiledDocument,
+    MechaLanguageServer,
+)
 
 
-def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams|lsp.DidChangeTextDocumentParams):
+def validate(
+    ls: MechaLanguageServer,
+    params: lsp.DidOpenTextDocumentParams | lsp.DidChangeTextDocumentParams,
+):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     ctx = ls.get_context(text_doc)
 
@@ -69,24 +77,26 @@ def validate_function(
 ) -> list[InvalidSyntax]:
     logging.debug(f"Parsing function:\n{text_doc.source}")
     logging.debug(text_doc.path)
-    for pack in ctx.packs:
-        for path, file in pack.all():
-            logging.debug(f"{path}: {file.ensure_source_path()}")
+
+    if text_doc.path not in PATH_TO_RESOURCE:
+        COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
+            ctx, "", None, [], None, None
+        )
+        return []
 
     location, file = PATH_TO_RESOURCE[text_doc.path]
 
     if not isinstance(file, Function) and not isinstance(file, Module):
         COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
-            ctx,
-            location,
-            None,
-            [],
-            None,
-            None
+            ctx, location, None, [], None, None
         )
         return []
+    
+    # file.text = text_doc.source
 
-    compiled_doc = parse_function(ctx, location, file)
+    # file.set_content(text_doc.source)
+
+    compiled_doc = parse_function(ctx, location, type(file)(text_doc.source, text_doc.path))
 
     COMPILATION_RESULTS[text_doc.uri] = compiled_doc
 
@@ -94,7 +104,7 @@ def validate_function(
 
 
 def parse_function(
-    ctx: Context, location: str, function: Function|Module
+    ctx: Context, location: str, function: Function | Module
 ) -> CompiledDocument:
     mecha = ctx.inject(Mecha)
 
@@ -130,19 +140,15 @@ def parse_function(
         if isinstance(node, AstError):
             diagnostics.append(node.error)
 
-
     if len(diagnostics) == 0:
         runtime = ctx.inject(Runtime)
         compiled_module = runtime.modules.get(function)
-        
+
         if compiled_module is not None:
             compiled_module.ast = indexer(compiled_module.ast)
             logging.debug(compiled_module)
     else:
         compiled_module = None
-
-
-
 
     return CompiledDocument(
         resource_location=location,
@@ -150,5 +156,5 @@ def parse_function(
         diagnostics=diagnostics,
         compiled_unit=compiled_unit,
         compiled_module=compiled_module,
-        ctx=ctx
+        ctx=ctx,
     )

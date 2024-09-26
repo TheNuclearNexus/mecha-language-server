@@ -12,12 +12,9 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
         fail-fast: false
-        matrix:
-            os: [macos-latest, ubuntu-latest, windows-latest]
-
     
     steps:
     - uses: actions/checkout@v2
@@ -44,4 +41,4 @@ jobs:
       uses: actions/upload-artifact@v3.0.0
       with:
         path: 'extension/*.vsix'
-        name: extension-${{matrix.os}}
+        name: extension

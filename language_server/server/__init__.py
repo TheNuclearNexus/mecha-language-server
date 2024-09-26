@@ -176,7 +176,9 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
 
             for location, file in pack.all():
                 try:
-                    PATH_TO_RESOURCE[str(file.ensure_source_path())] = (location, file)
+                    path = file.ensure_source_path()
+                    logging.debug(path)
+                    PATH_TO_RESOURCE[str(path)] = (location, file)
                 except:
                     continue
 
