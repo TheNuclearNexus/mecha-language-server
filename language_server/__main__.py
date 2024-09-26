@@ -2,6 +2,9 @@ import argparse
 import logging
 from lsprotocol import types as lsp
 
+from .server.features.hover import get_hover
+
+from .server.features.definition import get_definition
 from language_server.server.features.semantics import TOKEN_TYPE_LIST, semantic_tokens
 
 from .server import MechaLanguageServer
@@ -44,6 +47,20 @@ def folders_changed(ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFolde
 )
 def semantic_tokens_full(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     return semantic_tokens(ls, params)
+
+
+@mecha_server.feature(
+    lsp.TEXT_DOCUMENT_DEFINITION
+)
+def definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
+    return get_definition(ls, params)
+
+@mecha_server.feature(
+    lsp.TEXT_DOCUMENT_HOVER
+)
+def hover(ls: MechaLanguageServer, params: lsp.HoverParams):
+    return get_hover(ls, params)
+
 
 def add_arguments(parser: argparse.ArgumentParser):
     parser.description = "simple json server example"

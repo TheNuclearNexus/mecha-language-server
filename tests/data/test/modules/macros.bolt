@@ -1,4 +1,15 @@
 bar = {}
 
 def foo():
-    bar = 1
+    pass
+
+function ~/baz:
+    pass
+
+function ./foo/baz:
+    function ./bar:
+        function ~/:
+            pass
+
+function ~/baz2:
+    pass

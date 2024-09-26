@@ -7,6 +7,7 @@ from typing import Iterator, List
 from beet import (
     Context,
     GenericPlugin,
+    NamespaceFile,
     PluginSpec,
     Project,
     ProjectBuilder,
@@ -44,9 +45,14 @@ logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
 COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}
+PATH_TO_RESOURCE: dict[str, tuple[str, NamespaceFile]] = {}
 
 @dataclass
 class CompiledDocument:
+    ctx: Context 
+    
+    resource_location: str
+
     ast: AstNode | None
     diagnostics: list[InvalidSyntax]
 
@@ -167,6 +173,9 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
                 for file_instance, compilation_unit in provider(pack, mc.match):
                     mc.database[file_instance] = compilation_unit
                     mc.database.enqueue(file_instance)
+
+            for location, file in pack.all():
+                PATH_TO_RESOURCE[str(file.ensure_source_path())] = (location, file)
 
         return ctx
     return None

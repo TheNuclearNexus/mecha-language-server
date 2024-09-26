@@ -5,3 +5,4 @@ mecha.log
 *.pyz
 .env
 *.vsix
+.DS_Store

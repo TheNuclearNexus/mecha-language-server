@@ -3,7 +3,7 @@ import logging
 import traceback
 from typing import Any
 from beet import Context, Function, TextFileBase
-from bolt import CompiledModule, Runtime
+from bolt import CompiledModule, Module, Runtime
 from lsprotocol import types as lsp
 from mecha import AstChildren, AstNode, AstRoot, CompilationUnit, Mecha
 from mecha.ast import AstError
@@ -12,7 +12,7 @@ from pygls.workspace import TextDocument
 
 from language_server.server.indexing import Indexer
 
-from .. import COMPILATION_RESULTS, CompiledDocument, MechaLanguageServer
+from .. import COMPILATION_RESULTS, PATH_TO_RESOURCE, CompiledDocument, MechaLanguageServer
 
 
 def validate(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams|lsp.DidChangeTextDocumentParams):
@@ -68,8 +68,25 @@ def validate_function(
     ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument
 ) -> list[InvalidSyntax]:
     logging.debug(f"Parsing function:\n{text_doc.source}")
+    logging.debug(text_doc.path)
+    for pack in ctx.packs:
+        for path, file in pack.all():
+            logging.debug(f"{path}: {file.ensure_source_path()}")
 
-    compiled_doc = parse_function(ctx, text_doc.source)
+    location, file = PATH_TO_RESOURCE[text_doc.path]
+
+    if not isinstance(file, Function) and not isinstance(file, Module):
+        COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
+            ctx,
+            location,
+            None,
+            [],
+            None,
+            None
+        )
+        return []
+
+    compiled_doc = parse_function(ctx, location, file)
 
     COMPILATION_RESULTS[text_doc.uri] = compiled_doc
 
@@ -77,12 +94,9 @@ def validate_function(
 
 
 def parse_function(
-    ctx: Context, function: TextFileBase[Any] | list[str] | str
+    ctx: Context, location: str, function: Function|Module
 ) -> CompiledDocument:
     mecha = ctx.inject(Mecha)
-
-    if not isinstance(function, TextFileBase):
-        function = Function(function)
 
     stream = TokenStream(
         source=function.text,
@@ -90,7 +104,7 @@ def parse_function(
     )
 
     mecha.database.current = function
-    compiled_unit = CompilationUnit(resource_location="lsp:current", pack=ctx.data)
+    compiled_unit = CompilationUnit(resource_location=location, pack=ctx.data)
     mecha.database[function] = compiled_unit
 
     diagnostics = []
@@ -131,8 +145,10 @@ def parse_function(
 
 
     return CompiledDocument(
+        resource_location=location,
         ast=ast,
         diagnostics=diagnostics,
         compiled_unit=compiled_unit,
-        compiled_module=compiled_module
+        compiled_module=compiled_module,
+        ctx=ctx
     )

@@ -72,7 +72,7 @@ def get_completions(
         items = get_diag_completions(pos, mecha, diagnostics)
     elif ast is not None:
         current_token = get_node_at_position(
-            ast, SourceLocation(0, pos.line + 1, pos.character + 1)
+            ast, pos
         )
 
         if isinstance(current_token, AstAttribute) and compiled_doc.compiled_module is not None:
