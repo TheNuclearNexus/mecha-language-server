@@ -1,7 +1,0 @@
-from mecha import delegate      
-
-type(delegate)
-
-foo = 0
-foo = {}
-fo

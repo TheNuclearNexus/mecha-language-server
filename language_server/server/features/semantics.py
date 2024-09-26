@@ -90,7 +90,6 @@ def walk(root: AstNode):
     nodes: list[tuple[AstNode, int, int]] = []
 
     for node in root.walk():
-        logging.debug(node)
         get_token_type(nodes, node)
 
     tokens: list[tuple[int]] = []
@@ -172,7 +171,13 @@ def handle_from_import(
 def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     ctx = ls.get_context(text_doc)
-    ast, _ = get_compilation_data(ls, ctx, text_doc)
 
-    data = walk(ast) if ast else []
+    if ctx is None:
+        data = []
+    else:
+        compiled_doc = get_compilation_data(ls, ctx, text_doc)
+        ast = compiled_doc.ast
+
+        data = walk(ast) if ast else []
+
     return lsp.SemanticTokens(data=data)

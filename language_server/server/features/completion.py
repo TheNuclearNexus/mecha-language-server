@@ -1,11 +1,12 @@
 import logging
 from beet import Context
 from lsprotocol import types as lsp
-from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha
-from bolt import AstIdentifier, UndefinedIdentifier, Variable
-from tokenstream import UnexpectedEOF, UnexpectedToken
+from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha, Reducer
+from bolt import AstAttribute, AstIdentifier, UndefinedIdentifier, Variable
+from tokenstream import InvalidSyntax, SourceLocation, UnexpectedEOF, UnexpectedToken
 from pygls.workspace import TextDocument
 
+from language_server.server.features.helpers import get_node_at_position
 from language_server.server.indexing import AstTypedTarget, AstTypedTargetIdentifier
 
 from ...server import MechaLanguageServer
@@ -47,7 +48,10 @@ def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     ctx = ls.get_context(text_doc)
 
-    items = get_completions(ls, ctx, params.position, text_doc)
+    if ctx is None:
+        items = []
+    else:
+        items = get_completions(ls, ctx, params.position, text_doc)
 
     return lsp.CompletionList(False, items)
 
@@ -56,8 +60,43 @@ def get_completions(
     ls: MechaLanguageServer, ctx: Context, pos: lsp.Position, text_doc: TextDocument
 ) -> list[lsp.CompletionItem]:
     mecha = ctx.inject(Mecha)
-    _, diagnostics = get_compilation_data(ls, ctx, text_doc)
+    compiled_doc = get_compilation_data(ls, ctx, text_doc)
 
+    ast = compiled_doc.ast
+    diagnostics = compiled_doc.diagnostics
+
+    logging.debug(f"\n\n{compiled_doc.compiled_module}\n\n")
+
+    items = []
+    if len(diagnostics) > 0:
+        items = get_diag_completions(pos, mecha, diagnostics)
+    elif ast is not None:
+        current_token = get_node_at_position(
+            ast, SourceLocation(0, pos.line + 1, pos.character + 1)
+        )
+
+        if isinstance(current_token, AstAttribute) and compiled_doc.compiled_module is not None:
+            module = compiled_doc.compiled_module
+            value = current_token.value
+            if isinstance(value, AstIdentifier):
+                var_name = value.value
+                defined_variables = module.lexical_scope.variables
+                variable = defined_variables[var_name]
+
+                for binding in variable.bindings:
+                    if value in binding.references and (type_annotations := binding.origin.__dict__.get("type_annotations")):
+                        for type_annotation in type_annotations:
+                            if not isinstance(type_annotation, type):
+                                continue
+                            
+                            for field in dir(type_annotation): 
+                                items.append(lsp.CompletionItem(field))
+
+
+    return items
+
+
+def get_diag_completions(pos: lsp.Position, mecha: Mecha, diagnostics: list[InvalidSyntax]):
     items = []
     for diagnostic in diagnostics:
         start = diagnostic.location
@@ -74,15 +113,13 @@ def get_completions(
                     pattern if isinstance(pattern, tuple) else [pattern, None]
                 )
                 items += get_token_options(mecha, token_type, value)
-
-            logging.debug(f"\n\n{diagnostic.expected_patterns}\n\n")
             break
 
         if isinstance(diagnostic, UndefinedIdentifier):
+            logging.debug("undefined identifier")
             for name, variable in diagnostic.lexical_scope.variables.items():
                 add_variable(items, name, variable)
             break
-
     return items
 
 
@@ -93,11 +130,7 @@ def add_variable(items: list[lsp.CompletionItem], name: str, variable: Variable)
 
     for binding in variable.bindings:
         origin = binding.origin
-        logging.debug(
-            f"\n\n{origin.__dict__}\n\n"
-        )
         if type_annotations := origin.__dict__.get("type_annotations"):
-            logging.debug(f"types: {type_annotations}")
             for t in type_annotations:
                 match t:
                     case AstIdentifier() as identifer:
@@ -112,6 +145,3 @@ def add_variable(items: list[lsp.CompletionItem], name: str, variable: Variable)
         documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
     items.append(lsp.CompletionItem(name, documentation=documentation))
-    logging.debug(
-        f"Variable {name}: {variable} {variable.bindings[0].origin.__annotations__}"
-    )

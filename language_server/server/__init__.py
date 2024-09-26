@@ -1,5 +1,6 @@
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
+from dataclasses import dataclass
 import logging
 import sys
 from typing import Iterator, List
@@ -25,7 +26,8 @@ from beet.core.utils import (
 
 from beet.contrib.load import load
 
-from mecha import AstRoot, Mecha, DiagnosticErrorSummary
+from bolt import CompiledModule
+from mecha import AstNode, AstRoot, CompilationUnit, Mecha, DiagnosticErrorSummary
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 import os
@@ -41,7 +43,15 @@ from language_server.server.indexing import Indexer
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
-COMPILATION_RESULTS: dict[str, tuple[AstRoot, tuple[InvalidSyntax]]] = {}
+COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}
+
+@dataclass
+class CompiledDocument:
+    ast: AstNode | None
+    diagnostics: list[InvalidSyntax]
+
+    compiled_unit: CompilationUnit | None
+    compiled_module: CompiledModule | None
 
 
 class PipelineShadow(Pipeline):
@@ -192,7 +202,7 @@ def create_instance(
     except DiagnosticErrorSummary as summary:
         logging.error("Errors found in the following:")
         for diag in summary.diagnostics.exceptions:
-            logging.error("\t" + str(diag.file.source_path))
+            logging.error("\t" + str(diag.file.source_path if diag.file is not None else ""))
 
     except Exception as e:
         logging.error(f"Error occured while running beet: {type(e)} {e}")
@@ -204,7 +214,7 @@ def create_instance(
 
 
 class MechaLanguageServer(LanguageServer):
-    instances: dict[Path, Context]
+    instances: dict[Path, Context] = dict()
     _sites: list[str] = []
 
     def set_sites(self, sites: list[str]):
@@ -225,7 +235,7 @@ class MechaLanguageServer(LanguageServer):
                     config_paths.append(config_path)
                     logging.debug(config_path)
 
-        self.instances = {
+        self.instances = { # type: ignore
             c.parent: create_instance(c, self._sites) for c in config_paths
         }
         # logging.debug(self.mecha_instances)
@@ -239,6 +249,17 @@ class MechaLanguageServer(LanguageServer):
         # logging.debug(norm_path)
         norm_path = Path(norm_path)
         return norm_path
+    
+    def get_instance(self, config_path: Path):
+        if config_path not in self.instances or self.instances[config_path] is None:
+            instance = create_instance(config_path, self._sites)
+
+            if instance is not None:
+                self.instances[config_path] = instance
+
+            return instance
+        else:
+            return self.instances[config_path]
 
     def get_context(self, document: TextDocument):
         doc_path = Path(document.path)
@@ -251,12 +272,6 @@ class MechaLanguageServer(LanguageServer):
 
         parents = sorted(parents, key=lambda p: len(str(p).split(os.path.sep)))
         # logging.debug(parents[-1])
-        instance = self.instances[parents[-1]]
+        instance = self.get_instance(parents[-1])
 
-        if instance is None:
-            instance = create_instance(parents[-1], self._sites)
-            self.instances[parents[-1]] = instance
-
-        if instance is not None:
-            return instance
-        return None
+        return instance

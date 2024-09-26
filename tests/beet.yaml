@@ -2,3 +2,12 @@ pipeline:
   - mecha
 require:
   - bolt
+  - bolt_expressions
+
+data_pack:
+  load: .
+
+meta:
+  bolt:
+    entrypoint:
+      - "*"

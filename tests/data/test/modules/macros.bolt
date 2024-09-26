@@ -1,0 +1,4 @@
+bar = {}
+
+def foo():
+    bar = 1

@@ -10,7 +10,7 @@ from . import mecha_server
 
 
 @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: MechaLanguageServer, params: lsp.TextDocumentDidChangeNotification):
+def did_change(ls: MechaLanguageServer, params: lsp.DidChangeTextDocumentParams):
     validate(ls, params)
 
 
@@ -34,7 +34,7 @@ def initialized(ls: MechaLanguageServer, params: lsp.InitializedParams):
 @mecha_server.feature(
     lsp.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS
 )
-def initialized(ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFoldersParams):
+def folders_changed(ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFoldersParams):
     ls.setup_workspaces()
 
 

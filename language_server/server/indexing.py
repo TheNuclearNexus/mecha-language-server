@@ -8,15 +8,16 @@ from bolt import (
     AstExpression,
     AstExpressionBinary,
     AstIdentifier,
+    AstList,
     AstTarget,
     AstTargetIdentifier,
+    AstTuple,
     AstValue,
 )
 from mecha import AstNode, AstRoot, MutatingReducer, Reducer, Visitor, rule
 
 
 def node_to_types(node: AstNode):
-    logging.debug(node)
     
     nodes = []
     for n in node.walk():
@@ -36,10 +37,21 @@ class AstTypedTarget(AstTarget):
 class AstTypedTargetIdentifier(AstTargetIdentifier):
     type_annotation: list[Any] = field(default_factory=list)
 
-
+def expression_to_annotation(expression):
+    type_annotation = None
+    match (expression):
+        case AstValue() as value:
+            type_annotation = type(value.value)
+        case AstDict() as _dict:
+            type_annotation = dict
+        case AstList():
+            type_annotation = list
+        case AstTuple():
+            type_annotation = tuple
+    return type_annotation
 
 @dataclass
-class Indexer(MutatingReducer):
+class Indexer(Reducer):
 
     @rule(AstAssignment)
     def assignment(self, node: AstAssignment):
@@ -54,42 +66,12 @@ class Indexer(MutatingReducer):
             annotations.extend(node_to_types(type_annotation))
         else:
             expression = node.value
-            type_annotation = None
-            match (expression):
-                case AstValue() as value:
-                    type_annotation = type(value.value)
-                case AstDict() as _dict:
-                    type_annotation = dict
-
+            type_annotation = expression_to_annotation(expression)
             if type_annotation:
                 annotations.append(type_annotation)
 
         if len(annotations) > 0:
             node.target.__dict__["type_annotations"] = annotations
-            # if isinstance(node.target, AstTargetIdentifier):
-                
-
-            #     target = AstTypedTargetIdentifier(
-            #         location=node.target.location,
-            #         end_location=node.target.end_location,
-            #         value=node.target.value,
-            #         rebind=node.target.rebind,
-            #         type_annotation=annotations
-            #     )
-            # else:
-            #     target = AstTypedTarget(
-            #         location=node.target.location,
-            #         end_location=node.target.end_location,
-            #         type_annotation=annotations
-            #     )
-
-            # return AstAssignment(
-            #     location=node.location,
-            #     end_location=node.end_location,
-            #     operator=node.operator,
-            #     target=target,
-            #     value=node.value,
-            #     type_annotation=node.type_annotation
-            # )
-
         return node
+
+    
