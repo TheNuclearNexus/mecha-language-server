@@ -175,7 +175,10 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
                     mc.database.enqueue(file_instance)
 
             for location, file in pack.all():
-                PATH_TO_RESOURCE[str(file.ensure_source_path())] = (location, file)
+                try:
+                    PATH_TO_RESOURCE[str(file.ensure_source_path())] = (location, file)
+                except:
+                    continue
 
         return ctx
     return None
