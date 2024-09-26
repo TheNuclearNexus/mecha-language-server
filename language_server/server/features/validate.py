@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 import logging
+import os
 import traceback
 from typing import Any
 from beet import Context, Function, TextFileBase
@@ -76,15 +77,16 @@ def validate_function(
     ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument
 ) -> list[InvalidSyntax]:
     logging.debug(f"Parsing function:\n{text_doc.source}")
-    logging.debug(text_doc.path)
 
-    if text_doc.path not in PATH_TO_RESOURCE:
+    path = os.path.normcase(os.path.normpath(text_doc.path))
+
+    if path not in PATH_TO_RESOURCE:
         COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
             ctx, "", None, [], None, None
         )
         return []
 
-    location, file = PATH_TO_RESOURCE[text_doc.path]
+    location, file = PATH_TO_RESOURCE[path]
 
     if not isinstance(file, Function) and not isinstance(file, Module):
         COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(

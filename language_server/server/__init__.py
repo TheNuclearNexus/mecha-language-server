@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import logging
 import sys
 from typing import Iterator, List
+import pathlib
 from beet import (
     Context,
     GenericPlugin,
@@ -162,11 +163,6 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
     with ProjectBuilderShadow(project, root=True).build() as ctx:
         mc = ctx.inject(Mecha)
 
-        logging.debug(mc.steps)
-
-        # for mod in ctx.data[Module]:
-        #     logging.debug(mod)
-
         logging.debug(f"Mecha created for {config_path} successfully")
         for pack in ctx.packs:
             for provider in mc.providers:
@@ -176,8 +172,8 @@ def create_context(config: ProjectConfig, config_path: Path) -> Context:
 
             for location, file in pack.all():
                 try:
-                    path = file.ensure_source_path()
-                    logging.debug(path)
+                    path = os.path.normpath(file.ensure_source_path())
+                    path = os.path.normcase(path)
                     PATH_TO_RESOURCE[str(path)] = (location, file)
                 except:
                     continue
