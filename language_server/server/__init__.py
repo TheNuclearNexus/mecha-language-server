@@ -95,9 +95,17 @@ class ContextShadow(Context):
 class ProjectBuilderShadow(ProjectBuilder):
     def bootstrap(self, ctx: Context):
         """Plugin that handles the project configuration."""
+
+        lsp_config: dict = ctx.meta.setdefault("lsp", {})
+        
+        excluded_plugins = lsp_config.get("excluded_plugins") or []
+
         plugins = self.config.require
 
         for plugin in plugins:
+            if plugin in excluded_plugins:
+                continue
+
             ctx.require(plugin)
 
     # This stripped down version of build only handles loading the plugins from config
@@ -119,7 +127,7 @@ class ProjectBuilderShadow(ProjectBuilder):
                 project_author=self.config.author,
                 project_version=self.config.version,
                 project_root=self.root,
-                minecraft_version=self.config.minecraft or LATEST_MINECRAFT_VERSION,
+                minecraft_version=self.config.minecraft if len(self.config.minecraft) > 0 else LATEST_MINECRAFT_VERSION,
                 directory=self.project.directory,
                 output_directory=self.project.output_directory,
                 meta=meta,
@@ -159,6 +167,9 @@ class ProjectBuilderShadow(ProjectBuilder):
             yield ctx
 
 def load_registry(minecraft_version: str):
+    if len(minecraft_version) <= 0:
+        minecraft_version = LATEST_MINECRAFT_VERSION
+
     cache_dir = Path("./.mls_cache")
     if not cache_dir.exists():
         os.mkdir(cache_dir)
@@ -167,6 +178,8 @@ def load_registry(minecraft_version: str):
         os.mkdir(cache_dir / "registries")
 
     file_path = cache_dir / "registries" / (minecraft_version + ".json")
+
+    logging.debug(minecraft_version)
 
     if not file_path.exists():
         request.urlretrieve(f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json", file_path)

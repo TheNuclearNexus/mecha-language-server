@@ -3,9 +3,9 @@ import logging
 from beet import Context
 from beet.core.utils import required_field
 from lsprotocol import types as lsp
-from mecha import AstCommand, AstItemSlot, AstNode, AstResourceLocation, Visitor, rule, Mecha
+from mecha import AstCommand, AstItemSlot, AstNode, AstResourceLocation, Reducer, Visitor, rule, Mecha
 from mecha.contrib.nested_location import AstNestedLocation
-from bolt import AstAttribute, AstPrelude
+from bolt import AstAttribute, AstExpression, AstExpressionUnary, AstFunctionSignatureArgument, AstIdentifier, AstPrelude, AstTargetIdentifier
 from bolt import (
     AstAssignment,
     AstCall,
@@ -86,7 +86,7 @@ def node_to_token(
     return token
 
 @dataclass
-class SemanticTokenCollector(Visitor):
+class SemanticTokenCollector(Reducer):
     nodes: list[tuple[AstNode, int, int]] = field(default_factory=list)
     ctx: Context = required_field()
     
@@ -191,6 +191,15 @@ class SemanticTokenCollector(Visitor):
         )
         self.nodes.append((node, TOKEN_TYPES["function"], 0))
 
+
+    @rule(AstFunctionSignatureArgument)
+    def function_signature_argument(
+        self, argument: AstFunctionSignatureArgument
+    ):
+        if argument.type_annotation:
+            self.nodes.append((argument.type_annotation, TOKEN_TYPES["class"], 0))
+            
+
     @rule(AstAssignment)
     def assignment(self, assignment: AstAssignment):
         operator = assignment.operator
@@ -199,6 +208,12 @@ class SemanticTokenCollector(Visitor):
 
         if assignment.type_annotation != None:
             self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
+
+
+    # @rule(AstExpressionUnary)
+    # def expression(self, expression: AstExpressionUnary):
+    #     if expression.operator == "not" or expression.operator == "is":
+    #         self.nodes.append((expression, TOKEN_TYPES["operator"], TOKEN_MODIFIERS["declaration"]))
 
 
     def walk(self, root: AstNode):
@@ -215,6 +230,7 @@ class SemanticTokenCollector(Visitor):
             node, type, modifier = self.nodes[i]
             tokens.append(node_to_token(node, type, modifier, prev_node))
 
+        logging.debug(tokens)
         return list(sum(tokens, ()))
 
 
