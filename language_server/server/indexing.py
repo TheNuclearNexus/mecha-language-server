@@ -12,7 +12,7 @@ from bolt import (
     AstTuple,
     AstValue,
 )
-from mecha import AstBlock, AstCommand, AstNode, AstParticle, AstRoot, AstSelector, AstSelectorArgument, Reducer, AstResourceLocation, rule, AstItemStack
+from mecha import AstBlock, AstCommand, AstItemSlot, AstNode, AstParticle, AstRoot, AstSelector, AstSelectorArgument, Reducer, AstResourceLocation, rule, AstItemStack
 from mecha.contrib.nested_location import AstNestedLocation
 
 def node_to_types(node: AstNode):

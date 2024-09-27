@@ -1,6 +1,6 @@
 import logging
 from lsprotocol import types as lsp
-from mecha import AstCommand, AstNode, AstResourceLocation
+from mecha import AstCommand, AstItemSlot, AstNode, AstResourceLocation
 from mecha.contrib.nested_location import AstNestedLocation
 from bolt import AstAttribute, AstPrelude
 from bolt import (
@@ -40,8 +40,21 @@ TOKEN_TYPE_LIST = [
     "label",
 ]
 
-TOKEN_TYPES = {TOKEN_TYPE_LIST[i]: i for i in range(len(TOKEN_TYPE_LIST))}
+TOKEN_MODIFIER_LIST = [
+    "declaration",
+	"definition",
+	"readonly",
+	"static",
+	"deprecated",
+	"abstract",
+	"async",
+	"modification",
+	"documentation",
+	"defaultLibrary",
+]
 
+TOKEN_TYPES = {TOKEN_TYPE_LIST[i]: i for i in range(len(TOKEN_TYPE_LIST))}
+TOKEN_MODIFIERS = {TOKEN_MODIFIER_LIST[i]: i for i in range(len(TOKEN_MODIFIER_LIST))}
 # token tuple
 # 0: line offset
 # 1: col offset
@@ -149,9 +162,12 @@ def get_token_type(nodes: list[tuple[AstNode, int, int]], node: AstNode):
 
         case AstFunctionSignature() as signature:
             handle_function_sig(nodes, signature)
-            
+
         case AstResourceLocation() as nested_location:
             nodes.append((nested_location, TOKEN_TYPES["function"], 0))
+
+        case AstItemSlot():
+            nodes.append((node, TOKEN_TYPES["variable"], TOKEN_MODIFIERS["readonly"]))
 
 
 def handle_function_sig(

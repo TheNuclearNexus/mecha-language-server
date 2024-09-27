@@ -2,6 +2,7 @@ import logging
 from beet import Context
 from lsprotocol import types as lsp
 from mecha import (
+    AstItemSlot,
     AstNode,
     AstOption,
     AstResourceLocation,
@@ -24,6 +25,27 @@ from mecha.ast import AstError
 TOKEN_HINTS: dict[str, list[str]] = {
     "player_name": ["@s", "@e", "@p", "@a", "@r"],
     "coordinate": ["~ ~ ~", "^ ^ ^"],
+    "item_slot": [
+        "contents",
+        "container.",
+        "hotbar.",
+        "inventory.",
+        "enderchest.",
+        "villager.",
+        "horse.",
+        "weapon",
+        "weapon.mainhand",
+        "weapon.offhand",
+        "armor.head",
+        "armor.chest",
+        "armor.legs",
+        "armor.feet",
+        "armor.body",
+        "horse.saddle",
+        "horse.chest",
+        "player.cursor",
+        "player.crafting.\1",
+    ],
 }
 
 
@@ -87,7 +109,20 @@ def get_completions(
             logging.debug(GAME_REGISTRIES)
             if represents is not None:
                 add_registry_items(items, represents)
-                add_registry_items(items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant)
+                add_registry_items(
+                    items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
+                )
+
+        if isinstance(current_node, AstItemSlot):
+            items.extend(
+                [
+                    lsp.CompletionItem(
+                        k,
+                        kind=lsp.CompletionItemKind.Value
+                    )
+                    for k in TOKEN_HINTS["item_slot"]
+                ]
+            )
 
         if compiled_doc.compiled_module is not None:
             get_bolt_completions(current_node, compiled_doc, items)
@@ -105,7 +140,7 @@ def add_registry_items(
         registry_items = GAME_REGISTRIES[represents]
         items.extend(
             [
-                lsp.CompletionItem(prefix + "minecraft:" + k, kind=kind, sort_text="minecraft:" + k)
+                lsp.CompletionItem(prefix + "minecraft:" + k, kind=kind, sort_text=k)
                 for k in registry_items
             ]
         )

@@ -5,7 +5,7 @@ from lsprotocol import types as lsp
 from .server.features.hover import get_hover
 
 from .server.features.definition import get_definition
-from language_server.server.features.semantics import TOKEN_TYPE_LIST, semantic_tokens
+from language_server.server.features.semantics import TOKEN_MODIFIER_LIST, TOKEN_TYPE_LIST, semantic_tokens
 
 from .server import MechaLanguageServer
 from .server.features import validate, completion
@@ -43,7 +43,7 @@ def folders_changed(ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFolde
 
 @mecha_server.feature(
     lsp.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
-    lsp.SemanticTokensLegend(token_types=TOKEN_TYPE_LIST, token_modifiers=[])
+    lsp.SemanticTokensLegend(token_types=TOKEN_TYPE_LIST, token_modifiers=TOKEN_MODIFIER_LIST)
 )
 def semantic_tokens_full(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     return semantic_tokens(ls, params)
