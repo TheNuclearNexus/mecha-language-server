@@ -95,15 +95,15 @@ class SemanticTokenCollector(Visitor):
     def command(self, node: AstCommand):
         match node.identifier:
             case "import:module":
-                modules: list[AstResourceLocation] = node.arguments
+                modules: list[AstResourceLocation] = node.arguments #type: ignore
 
                 for m in modules:
                     self.nodes.append(
                         (m, TOKEN_TYPES["class" if m.namespace == None else "function"], 0)
                     )
             case "import:module:as:alias":
-                module: AstResourceLocation = node.arguments[0]
-                item: AstImportedItem = node.arguments[1]
+                module: AstResourceLocation = node.arguments[0] #type: ignore
+                item: AstImportedItem = node.arguments[1] #type: ignore
 
                 type = TOKEN_TYPES["class" if module.namespace == None else "function"]
 
@@ -118,8 +118,8 @@ class SemanticTokenCollector(Visitor):
         
         logging.debug(from_import)
 
-        location: AstResourceLocation = from_import.arguments[0]
-        imports: tuple[AstImportedItem] = from_import.arguments[1:]
+        location: AstResourceLocation = from_import.arguments[0] #type: ignore
+        imports: tuple[AstImportedItem] = from_import.arguments[1:] #type: ignore
 
         self.nodes.append(
             (
@@ -195,10 +195,10 @@ class SemanticTokenCollector(Visitor):
     def assignment(self, assignment: AstAssignment):
         operator = assignment.operator
 
-        nodes.append((assignment.target, TOKEN_TYPES["variable"], 0))
+        self.nodes.append((assignment.target, TOKEN_TYPES["variable"], 0))
 
         if assignment.type_annotation != None:
-            nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
+            self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
 
 
     def walk(self, root: AstNode):

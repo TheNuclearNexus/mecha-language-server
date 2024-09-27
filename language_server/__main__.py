@@ -2,6 +2,10 @@ import argparse
 import logging
 from lsprotocol import types as lsp
 
+from .server.features.rename import rename_variable
+
+from .server.features.references import get_references
+
 from .server.features.hover import get_hover
 
 from .server.features.definition import get_definition
@@ -56,10 +60,22 @@ def definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
     return get_definition(ls, params)
 
 @mecha_server.feature(
+    lsp.TEXT_DOCUMENT_REFERENCES
+)
+def references(ls: MechaLanguageServer, params: lsp.ReferenceParams):
+    return get_references(ls, params)
+
+@mecha_server.feature(
     lsp.TEXT_DOCUMENT_HOVER
 )
 def hover(ls: MechaLanguageServer, params: lsp.HoverParams):
     return get_hover(ls, params)
+
+@mecha_server.feature(
+    lsp.TEXT_DOCUMENT_RENAME
+)
+def rename(ls: MechaLanguageServer, params: lsp.RenameParams):
+    return rename_variable(ls, params)
 
 
 def add_arguments(parser: argparse.ArgumentParser):

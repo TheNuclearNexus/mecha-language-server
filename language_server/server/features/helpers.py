@@ -1,5 +1,6 @@
 import logging
 from typing import Any
+from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
 from tokenstream import SourceLocation
 from mecha import AstNode
 from lsprotocol import types as lsp
@@ -70,3 +71,21 @@ def offset_location(location: SourceLocation, offset):
         location.lineno,
         location.colno + offset
     )
+
+def search_scope_for_binding(
+    var_name: str, node: AstIdentifier | AstTargetIdentifier, scope: LexicalScope
+) -> tuple[Binding, LexicalScope] | None:
+    variables = scope.variables
+   
+    if var_name in variables:
+        var_data = variables[var_name]
+
+        for binding in var_data.bindings:
+            if node in binding.references or node == binding.origin:
+                return (binding, scope)
+
+    for child in scope.children:
+        if binding := search_scope_for_binding(var_name, node, child):
+            return binding
+
+    return None
