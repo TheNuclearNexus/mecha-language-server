@@ -92,14 +92,18 @@ class ContextShadow(Context):
             yield self.inject(PipelineShadow)
 
 
+def get_excluded_plugins(ctx: Context):
+    lsp_config: dict = ctx.meta.setdefault("lsp", {})
+    
+    excluded_plugins = lsp_config.get("excluded_plugins") or []
+
+    return excluded_plugins
+
 class ProjectBuilderShadow(ProjectBuilder):
     def bootstrap(self, ctx: Context):
         """Plugin that handles the project configuration."""
 
-        lsp_config: dict = ctx.meta.setdefault("lsp", {})
-        
-        excluded_plugins = lsp_config.get("excluded_plugins") or []
-
+        excluded_plugins = get_excluded_plugins(ctx)
         plugins = self.config.require
 
         for plugin in plugins:
@@ -144,9 +148,10 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             pipelined_plugin: List[PluginSpec] = [self.bootstrap]
 
-            for item in self.config.pipeline:
 
-                if item == "mecha" or not isinstance(item, str):
+            excluded_plugins = get_excluded_plugins(ctx)
+            for item in self.config.pipeline:
+                if item == "mecha" or not isinstance(item, str) or item in excluded_plugins:
                     continue
 
                 pipelined_plugin.append(item)
