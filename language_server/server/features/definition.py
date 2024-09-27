@@ -24,7 +24,7 @@ def search_scope(
 
         for binding in var_data.bindings:
             if node in binding.references or node == binding.origin:
-                return node_start_to_range(binding.origin)
+                return node_location_to_range(binding.origin)
 
     for child in scope.children:
         if range := search_scope(var_name, node, child):

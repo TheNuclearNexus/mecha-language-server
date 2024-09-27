@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .vscode/
+.mls_cache/
 mecha.log
 *.pyz
 .env

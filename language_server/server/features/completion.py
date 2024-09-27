@@ -1,7 +1,15 @@
 import logging
 from beet import Context
 from lsprotocol import types as lsp
-from mecha import AstOption, AstSwizzle, BasicLiteralParser, Mecha, Reducer
+from mecha import (
+    AstNode,
+    AstOption,
+    AstResourceLocation,
+    AstSwizzle,
+    BasicLiteralParser,
+    Mecha,
+    Reducer,
+)
 from bolt import AstAttribute, AstIdentifier, UndefinedIdentifier, Variable
 from tokenstream import InvalidSyntax, SourceLocation, UnexpectedEOF, UnexpectedToken
 from pygls.workspace import TextDocument
@@ -9,7 +17,7 @@ from pygls.workspace import TextDocument
 from language_server.server.features.helpers import get_node_at_position
 from language_server.server.indexing import AstTypedTarget, AstTypedTargetIdentifier
 
-from ...server import MechaLanguageServer
+from ...server import GAME_REGISTRIES, CompiledDocument, MechaLanguageServer
 from .validate import get_compilation_data
 from mecha.ast import AstError
 
@@ -37,7 +45,10 @@ def get_token_options(mecha: Mecha, token_type: str, value: str | None):
 
             if issubclass(node_type, AstOption):
                 logging.debug(f"Options: {node_type.options}")
-                return [lsp.CompletionItem(o) for o in node_type.options]
+                return [
+                    lsp.CompletionItem(o, kind=lsp.CompletionItemKind.Keyword)
+                    for o in node_type.options
+                ]
     else:
         return [lsp.CompletionItem(value)]
 
@@ -65,38 +76,73 @@ def get_completions(
     ast = compiled_doc.ast
     diagnostics = compiled_doc.diagnostics
 
-    logging.debug(f"\n\n{compiled_doc.compiled_module}\n\n")
-
     items = []
     if len(diagnostics) > 0:
         items = get_diag_completions(pos, mecha, diagnostics)
     elif ast is not None:
-        current_token = get_node_at_position(
-            ast, pos
-        )
+        current_node = get_node_at_position(ast, pos)
 
-        if isinstance(current_token, AstAttribute) and compiled_doc.compiled_module is not None:
-            module = compiled_doc.compiled_module
-            value = current_token.value
-            if isinstance(value, AstIdentifier):
-                var_name = value.value
-                defined_variables = module.lexical_scope.variables
-                variable = defined_variables[var_name]
+        if isinstance(current_node, AstResourceLocation):
+            represents = current_node.__dict__.get("represents")
+            logging.debug(GAME_REGISTRIES)
+            if represents is not None:
+                add_registry_items(items, represents)
+                add_registry_items(items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant)
 
-                for binding in variable.bindings:
-                    if value in binding.references and (type_annotations := binding.origin.__dict__.get("type_annotations")):
-                        for type_annotation in type_annotations:
-                            if not isinstance(type_annotation, type):
-                                continue
-                            
-                            for field in dir(type_annotation): 
-                                items.append(lsp.CompletionItem(field))
-
+        if compiled_doc.compiled_module is not None:
+            get_bolt_completions(current_node, compiled_doc, items)
 
     return items
 
 
-def get_diag_completions(pos: lsp.Position, mecha: Mecha, diagnostics: list[InvalidSyntax]):
+def add_registry_items(
+    items: list[lsp.CompletionItem],
+    represents: str,
+    prefix: str = "",
+    kind: lsp.CompletionItemKind = lsp.CompletionItemKind.Value,
+):
+    if represents in GAME_REGISTRIES:
+        registry_items = GAME_REGISTRIES[represents]
+        items.extend(
+            [
+                lsp.CompletionItem(prefix + "minecraft:" + k, kind=kind, sort_text="minecraft:" + k)
+                for k in registry_items
+            ]
+        )
+
+
+def get_bolt_completions(
+    current_token: AstNode,
+    compiled_doc: CompiledDocument,
+    items: list[lsp.CompletionItem],
+):
+    if compiled_doc.compiled_module is None:
+        return
+
+    module = compiled_doc.compiled_module
+
+    if isinstance(current_token, AstAttribute):
+        value = current_token.value
+        if isinstance(value, AstIdentifier):
+            var_name = value.value
+            defined_variables = module.lexical_scope.variables
+            variable = defined_variables[var_name]
+
+            for binding in variable.bindings:
+                if value in binding.references and (
+                    type_annotations := binding.origin.__dict__.get("type_annotations")
+                ):
+                    for type_annotation in type_annotations:
+                        if not isinstance(type_annotation, type):
+                            continue
+
+                        for field in dir(type_annotation):
+                            items.append(lsp.CompletionItem(field))
+
+
+def get_diag_completions(
+    pos: lsp.Position, mecha: Mecha, diagnostics: list[InvalidSyntax]
+):
     items = []
     for diagnostic in diagnostics:
         start = diagnostic.location
@@ -116,9 +162,9 @@ def get_diag_completions(pos: lsp.Position, mecha: Mecha, diagnostics: list[Inva
             break
 
         if isinstance(diagnostic, UndefinedIdentifier):
-            logging.debug("undefined identifier")
             for name, variable in diagnostic.lexical_scope.variables.items():
                 add_variable(items, name, variable)
+
             break
     return items
 
@@ -144,4 +190,8 @@ def add_variable(items: list[lsp.CompletionItem], name: str, variable: Variable)
         description = f"```python\n{name}: {' | '.join(possible_types)}\n```"
         documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
-    items.append(lsp.CompletionItem(name, documentation=documentation))
+    items.append(
+        lsp.CompletionItem(
+            name, documentation=documentation, kind=lsp.CompletionItemKind.Variable
+        )
+    )

@@ -11,7 +11,7 @@ from mecha.ast import AstError
 from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
-from language_server.server.indexing import Indexer
+from language_server.server.indexing import MetaDataAttacher, index_function_ast
 
 from .. import (
     COMPILATION_RESULTS,
@@ -135,20 +135,18 @@ def parse_function(
     except Exception as exec:
         logging.error(f"{type(exec)}: {exec}")
 
-    indexer = Indexer()
 
-    ast = indexer(ast)
+    ast = index_function_ast(ast, location)
     for node in ast.walk():
         if isinstance(node, AstError):
             diagnostics.append(node.error)
 
-    if len(diagnostics) == 0:
+    if len(diagnostics) == 0 and Module in ctx.data.extend_namespace:
         runtime = ctx.inject(Runtime)
         compiled_module = runtime.modules.get(function)
 
         if compiled_module is not None:
-            compiled_module.ast = indexer(compiled_module.ast)
-            logging.debug(compiled_module)
+            compiled_module.ast = index_function_ast(compiled_module.ast, location)
     else:
         compiled_module = None
 

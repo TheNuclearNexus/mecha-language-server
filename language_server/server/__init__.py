@@ -1,10 +1,11 @@
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
+import json
 import logging
 import sys
 from typing import Iterator, List
-import pathlib
+from urllib import request
 from beet import (
     Context,
     GenericPlugin,
@@ -29,7 +30,7 @@ from beet.core.utils import (
 from beet.contrib.load import load
 
 from bolt import CompiledModule
-from mecha import AstNode, AstRoot, CompilationUnit, Mecha, DiagnosticErrorSummary
+from mecha import AstNode, CompilationUnit, Mecha, DiagnosticErrorSummary
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 import os
@@ -40,13 +41,13 @@ from urllib.request import url2pathname
 
 from tokenstream import InvalidSyntax
 
-from language_server.server.indexing import Indexer
 
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
 COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}
 PATH_TO_RESOURCE: dict[str, tuple[str, NamespaceFile]] = {}
+GAME_REGISTRIES: dict[str, list[str]] = {}
 
 @dataclass
 class CompiledDocument:
@@ -157,11 +158,31 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             yield ctx
 
+def load_registry(minecraft_version: str):
+    cache_dir = Path("./.mls_cache")
+    if not cache_dir.exists():
+        os.mkdir(cache_dir)
+    
+    if not (cache_dir / "registries").exists():
+        os.mkdir(cache_dir / "registries")
+
+    file_path = cache_dir / "registries" / (minecraft_version + ".json")
+
+    if not file_path.exists():
+        request.urlretrieve(f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json", file_path)
+
+    with open(file_path) as file:
+        registries = json.loads(file.read())
+        for k in registries:
+            GAME_REGISTRIES[k] = registries[k]        
+
 
 def create_context(config: ProjectConfig, config_path: Path) -> Context: 
     project = Project(config, None, config_path)
     with ProjectBuilderShadow(project, root=True).build() as ctx:
-        mc = ctx.inject(Mecha)
+        mc = ctx.inject(Mecha)        
+
+        logging.debug(f"Downloading game registries")
 
         logging.debug(f"Mecha created for {config_path} successfully")
         for pack in ctx.packs:
@@ -220,6 +241,9 @@ def create_instance(
     os.chdir(og_cwd)
     sys.path = og_sys_path
     sys.modules = og_modules
+
+    load_registry(config.minecraft)
+
     return instance
 
 

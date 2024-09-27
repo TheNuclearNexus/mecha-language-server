@@ -62,3 +62,11 @@ def get_node_at_position(root: AstNode, pos: lsp.Position):
             nearest_node = node
 
     return nearest_node
+
+
+def offset_location(location: SourceLocation, offset):
+    return SourceLocation(
+        location.pos + offset,
+        location.lineno,
+        location.colno + offset
+    )
