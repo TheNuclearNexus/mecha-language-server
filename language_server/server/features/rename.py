@@ -1,10 +1,12 @@
 from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
+from mecha import AstNode
 
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
     node_location_to_range,
+    offset_location,
     search_scope_for_binding,
 )
 
@@ -31,8 +33,14 @@ def rename_variable(ls: MechaLanguageServer, params: lsp.RenameParams):
         binding, _ = result
 
         edits = []
+
+        origin_node = AstNode(
+            binding.origin.location,
+            offset_location(binding.origin.location, len(var_name))
+        )
+
         edits.append(
-            lsp.TextEdit(node_location_to_range(binding.origin), params.new_name)
+            lsp.TextEdit(node_location_to_range(origin_node), params.new_name)
         )
 
         for reference in binding.references:
