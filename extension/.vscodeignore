@@ -6,5 +6,8 @@ tsconfig.json
 tslint.json
 package.json
 package-lock.json
-
+node_modules/
+.mls_cache/
 .pytest_cache
+*.vsix
+*.log

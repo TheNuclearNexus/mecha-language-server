@@ -8,3 +8,4 @@ mecha.log
 .env
 *.vsix
 .DS_Store
+dist/

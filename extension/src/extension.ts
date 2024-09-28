@@ -34,7 +34,7 @@ import {
     integer,
 } from "vscode-languageclient/node";
 import { exec } from "child_process";
-import { log } from "console";
+import * as JSZip from "jszip";
 
 const MIN_PYTHON = semver.parse("3.7.9");
 
@@ -49,6 +49,17 @@ let clientStarting = false;
 let python: PythonExtension;
 let logger: vscode.LogOutputChannel;
 
+function registerCommand(
+    context: vscode.ExtensionContext,
+    commandIdentifier: string,
+    callback: () => any
+) {
+    logger.info(commandIdentifier)
+    context.subscriptions.push(
+        vscode.commands.registerCommand(commandIdentifier, callback)
+    );
+}
+
 /**
  * This is the main entry point.
  * Called when vscode first activates the extension
@@ -62,23 +73,61 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
     }
 
+    registerCommand(context, "mecha.server.updateServer", async () => {
+        const resp = await fetch(
+            "https://nightly.link/TheNuclearNexus/mecha-language-server/workflows/main/main/extension.zip"
+        );
+
+        if (!resp.ok)
+            return vscode.window.showErrorMessage(
+                "Failed to download extension\n" + resp.statusText
+            );
+
+        
+        const buffer = await resp.arrayBuffer()
+        const zip = await JSZip.loadAsync(buffer)
+
+        let extension = undefined;
+        for (const file in zip.files) {
+            if (file.endsWith(".vsix")) {
+                extension = file
+                break
+            }
+        }
+
+        if (extension === undefined) {
+            return vscode.window.showErrorMessage("Failed to find .vsix in zip")
+        } 
+
+        const filePath = path.join(context.extensionPath, "..", "update.vsix")
+
+        fs.writeFileSync(
+            filePath,
+            await zip.file(extension).async('nodebuffer')
+        );
+
+        if (context.extensionMode == vscode.ExtensionMode.Production) {
+            await vscode.commands.executeCommand(
+                "workbench.extensions.uninstallExtension",
+                "thenuclearnexus.mecha-language-server"
+            )
+            vscode.commands.executeCommand(
+                "workbench.extensions.installExtension",
+                vscode.Uri.file(filePath)
+            );  
+        }
+    });
+
     // Restart language server command
-    context.subscriptions.push(
-        vscode.commands.registerCommand("mecha.server.restart", async () => {
-            logger.info("restarting server...");
-            await startLangServer(context);
-        })
-    );
+    registerCommand(context, "mecha.server.restart", async () => {
+        logger.info("restarting server...");
+        await startLangServer(context);
+    });
 
     // Execute command... command
-    context.subscriptions.push(
-        vscode.commands.registerCommand(
-            "mecha.server.executeCommand",
-            async () => {
-                await executeServerCommand();
-            }
-        )
-    );
+    registerCommand(context, "mecha.server.executeCommand", async () => {
+        await executeServerCommand();
+    });
 
     // Restart the language server if the user switches Python envs...
     context.subscriptions.push(
@@ -117,22 +166,6 @@ export async function activate(context: vscode.ExtensionContext) {
                 await startLangServer(context);
             }
         })
-    );
-
-    // Restart the server if the user modifies it.
-    context.subscriptions.push(
-        vscode.workspace.onDidSaveTextDocument(
-            async (document: vscode.TextDocument) => {
-                const expectedUri = vscode.Uri.file(
-                    path.join(getCwd(), getServerPath())
-                );
-
-                if (expectedUri.toString() === document.uri.toString()) {
-                    logger.info("server modified, restarting...");
-                    await startLangServer(context);
-                }
-            }
-        )
     );
 }
 
@@ -177,7 +210,9 @@ async function startLangServer(context: vscode.ExtensionContext) {
         await stopLangServer();
     }
     const config = vscode.workspace.getConfiguration("mecha.server");
-    const cwd = getCwd();
+
+    const cwd = context.extensionPath;
+
     const serverPath = "language_server";
 
     logger.info(`cwd: '${cwd}'`);
@@ -190,28 +225,31 @@ async function startLangServer(context: vscode.ExtensionContext) {
         return;
     }
 
-    const args: string[] = []
-
+    const args: string[] = [];
 
     const sites = await getSitePackages(pythonCommand[0]);
     if (sites.length > 0) {
-        args.push("--site")
-        args.push(...sites)
+        args.push("--site");
+        args.push(...sites);
     }
 
     logger.debug(`python: ${pythonCommand.join(" ")}`);
-    logger.debug(process.env.DEV)
-    const serverOptions: ServerOptions = process.env.DEV == "true"
-        ? {
-              command: "poetry",
-              args: ["run", "python", "-m", serverPath, ...args],
-              options: { cwd },
-          }
-        : {
-              command: pythonCommand[0],
-              args: [context.asAbsolutePath("language_server.pyz"), ...args],
-              options: { cwd },
-          };
+    logger.debug(process.env.DEV);
+    const serverOptions: ServerOptions =
+        process.env.DEV == "true"
+            ? {
+                  command: "poetry",
+                  args: ["run", "python", "-m", serverPath, ...args],
+                  options: { cwd },
+              }
+            : {
+                  command: pythonCommand[0],
+                  args: [
+                      context.asAbsolutePath("language_server.pyz"),
+                      ...args,
+                  ],
+                  options: { cwd },
+              };
 
     logger.debug(JSON.stringify(serverOptions));
 
@@ -250,7 +288,7 @@ async function getSitePackages(pythonCommand: string): Promise<string[]> {
             );
         });
 
-        logger.debug("Received", json)
+        logger.debug("Received", json);
 
         const data = JSON.parse(json);
         if (data instanceof Array) return data;
@@ -361,23 +399,6 @@ async function executeServerCommand() {
     logger.info(
         `${commandName} result: ${JSON.stringify(result, undefined, 2)}`
     );
-}
-
-/**
- * If the user has explicitly provided a src directory use that.
- * Otherwise, fallback to the examples/servers directory.
- *
- * @returns The working directory from which to launch the server
- */
-function getCwd(): string {
-    const config = vscode.workspace.getConfiguration("mecha.server");
-    const cwd = config.get<string>("cwd");
-    if (cwd) {
-        return cwd;
-    }
-
-    const serverDir = path.resolve(path.join(__dirname, "..", ".."));
-    return serverDir;
 }
 
 /**
