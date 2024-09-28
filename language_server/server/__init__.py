@@ -25,6 +25,7 @@ from beet.core.utils import (
     normalize_string,
     change_directory,
     local_import_path,
+    required_field
 )
 
 from beet.contrib.load import load
@@ -33,6 +34,7 @@ from bolt import CompiledModule
 from mecha import AstNode, CompilationUnit, Mecha, DiagnosticErrorSummary
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
+from lsprotocol import types as lsp
 import os
 
 from pathlib import Path
@@ -80,11 +82,18 @@ class PipelineShadow(Pipeline):
 # We use this shadow of context in order to route calls to `ctx`
 # to our own methods, this allows us to bypass side effects without
 # having to break plugins
-class ContextShadow(Context):
+@dataclass(frozen=True)
+class LanguageServerContext(Context):
+    ls: "MechaLanguageServer" = required_field()
+
     def require(self, *args: PluginSpec):
         """Execute the specified plugin."""
-        self.inject(PipelineShadow).require(*args)
-
+        for arg in args:
+            try:
+                self.inject(PipelineShadow).require(arg)
+            except PluginError as exc:
+                self.ls.show_message(f"Failed to load plugin: {arg}\n{exc}", lsp.MessageType.Error)
+                
     @contextmanager
     def activate(self):
         """Push the context directory to sys.path and handle cleanup to allow module reloading."""
@@ -115,7 +124,7 @@ class ProjectBuilderShadow(ProjectBuilder):
     # This stripped down version of build only handles loading the plugins from config
     # all other operations are gone such as linking
     @contextmanager
-    def build(self) -> Iterator[Context]:
+    def build(self, ls: "MechaLanguageServer") -> Iterator[LanguageServerContext]:
         """Create the context, run the pipeline, and return the context."""
         with ExitStack() as stack:
             name = self.config.name or self.project.directory.stem
@@ -124,7 +133,8 @@ class ProjectBuilderShadow(ProjectBuilder):
             tmpdir = None
             cache = self.project.cache
 
-            ctx = ContextShadow(
+            ctx = LanguageServerContext(
+                ls=ls,
                 project_id=self.config.id or normalize_string(name),
                 project_name=name,
                 project_description=self.config.description,
@@ -171,98 +181,6 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             yield ctx
 
-def load_registry(minecraft_version: str):
-    if len(minecraft_version) <= 0:
-        minecraft_version = LATEST_MINECRAFT_VERSION
-
-    cache_dir = Path("./.mls_cache")
-    if not cache_dir.exists():
-        os.mkdir(cache_dir)
-    
-    if not (cache_dir / "registries").exists():
-        os.mkdir(cache_dir / "registries")
-
-    file_path = cache_dir / "registries" / (minecraft_version + ".json")
-
-    logging.debug(minecraft_version)
-
-    if not file_path.exists():
-        request.urlretrieve(f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json", file_path)
-
-    with open(file_path) as file:
-        registries = json.loads(file.read())
-        for k in registries:
-            GAME_REGISTRIES[k] = registries[k]        
-
-
-def create_context(config: ProjectConfig, config_path: Path) -> Context: 
-    project = Project(config, None, config_path)
-    with ProjectBuilderShadow(project, root=True).build() as ctx:
-        mc = ctx.inject(Mecha)        
-
-        logging.debug(f"Downloading game registries")
-
-        logging.debug(f"Mecha created for {config_path} successfully")
-        for pack in ctx.packs:
-            for provider in mc.providers:
-                for file_instance, compilation_unit in provider(pack, mc.match):
-                    mc.database[file_instance] = compilation_unit
-                    mc.database.enqueue(file_instance)
-
-            for location, file in pack.all():
-                try:
-                    path = os.path.normpath(file.ensure_source_path())
-                    path = os.path.normcase(path)
-                    PATH_TO_RESOURCE[str(path)] = (location, file)
-                except:
-                    continue
-
-        return ctx
-    return None
-
-        
-def create_instance(
-    config_path: Path, sites: list[str]
-) -> Context | None:
-    config = load_config(config_path)
-    logging.debug(config)
-    # Ensure that we aren't loading in all project files
-    config.output = None
-
-    config.pipeline = list(filter(lambda p: isinstance(p, str), config.pipeline))
-
-    og_cwd = os.getcwd()
-    og_sys_path = sys.path
-    og_modules = sys.modules
-
-    sys.path = [*sites, str(config_path.parent), *og_sys_path]
-
-    os.chdir(config_path.parent)
-
-
-    instance = None
-
-    try:
-        instance = create_context(config, config_path)
-
-    except PluginError as plugin_error:
-        logging.error(plugin_error.__cause__)
-        raise plugin_error.__cause__
-    except DiagnosticErrorSummary as summary:
-        logging.error("Errors found in the following:")
-        for diag in summary.diagnostics.exceptions:
-            logging.error("\t" + str(diag.file.source_path if diag.file is not None else ""))
-
-    except Exception as e:
-        logging.error(f"Error occured while running beet: {type(e)} {e}")
-
-    os.chdir(og_cwd)
-    sys.path = og_sys_path
-    sys.modules = og_modules
-
-    load_registry(config.minecraft)
-
-    return instance
 
 
 class MechaLanguageServer(LanguageServer):
@@ -275,6 +193,118 @@ class MechaLanguageServer(LanguageServer):
     def __init__(self, *args):
         super().__init__(*args)
         self.instances = {}
+    
+    def load_registry(self, minecraft_version: str):
+        """Load the game registry from Misode's mcmeta repository"""
+        global GAME_REGISTRIES
+
+        if len(minecraft_version) <= 0:
+            minecraft_version = LATEST_MINECRAFT_VERSION
+
+        cache_dir = Path("./.mls_cache")
+        if not cache_dir.exists():
+            os.mkdir(cache_dir)
+        
+        if not (cache_dir / "registries").exists():
+            os.mkdir(cache_dir / "registries")
+
+        file_path = cache_dir / "registries" / (minecraft_version + ".json")
+
+        logging.debug(minecraft_version)
+
+        if not file_path.exists():
+            try:
+                request.urlretrieve(f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json", file_path)
+            except Exception as exc: 
+                self.show_message(f"Failed to download registry for version {minecraft_version}, completions will be disabled\n{exc}", lsp.MessageType.Error)
+                
+                return
+
+        with open(file_path) as file:
+            try:
+                registries = json.loads(file.read())
+                for k in registries:
+                    GAME_REGISTRIES[k] = registries[k]     
+
+            except json.JSONDecodeError as exc:
+                self.show_message(f"Failed to parse registry for version {minecraft_version}, completions will be disabled\n{exc}", lsp.MessageType.Error)
+                os.remove(file_path)
+
+            except Exception as exc:
+                self.show_message(f"An unhandled exception occured loading registry for version {minecraft_version}\n{exc}", lsp.MessageType.Error)
+                os.remove(file_path)
+
+
+    def create_context(self, config: ProjectConfig, config_path: Path) -> Context: 
+        """Attempt to configure the project's context and run necessary plugins"""
+        project = Project(config, None, config_path)
+        with ProjectBuilderShadow(project, root=True).build(self) as ctx:
+            mc = ctx.inject(Mecha)        
+
+            logging.debug(f"Mecha created for {config_path} successfully")
+
+            for pack in ctx.packs:
+                # Load all files into the compilation database
+                for provider in mc.providers:
+                    for file_instance, compilation_unit in provider(pack, mc.match):
+                        mc.database[file_instance] = compilation_unit
+                        mc.database.enqueue(file_instance)
+
+                # Build a map of file path to resource location
+                for location, file in pack.all():
+                    try:
+                        path = os.path.normpath(file.ensure_source_path())
+                        path = os.path.normcase(path)
+                        PATH_TO_RESOURCE[str(path)] = (location, file)
+                    except:
+                        continue
+
+            return ctx
+        return None
+
+            
+    def create_instance(
+        self, config_path: Path
+    ) -> Context | None:
+        config = load_config(config_path)
+        logging.debug(config)
+        # Ensure that we aren't loading in all project files
+        config.output = None
+
+        config.pipeline = list(filter(lambda p: isinstance(p, str), config.pipeline))
+
+        og_cwd = os.getcwd()
+        og_sys_path = sys.path
+        og_modules = sys.modules
+
+        sys.path = [*self._sites, str(config_path.parent), *og_sys_path]
+
+        os.chdir(config_path.parent)
+
+
+        instance = None
+
+        try:
+            instance = self.create_context(config, config_path)
+
+        except PluginError as plugin_error:
+            logging.error(plugin_error.__cause__)
+            raise plugin_error.__cause__
+        except DiagnosticErrorSummary as summary:
+            logging.error("Errors found in the following:")
+            for diag in summary.diagnostics.exceptions:
+                logging.error("\t" + str(diag.file.source_path if diag.file is not None else ""))
+
+        except Exception as e:
+            logging.error(f"Error occured while running beet: {type(e)} {e}")
+
+        os.chdir(og_cwd)
+        sys.path = og_sys_path
+        sys.modules = og_modules
+
+        self.load_registry(config.minecraft)
+
+        return instance
 
     def setup_workspaces(self):
         config_paths: list[Path] = []
@@ -288,7 +318,7 @@ class MechaLanguageServer(LanguageServer):
                     logging.debug(config_path)
 
         self.instances = { # type: ignore
-            c.parent: create_instance(c, self._sites) for c in config_paths
+            c.parent: self.create_instance(c) for c in config_paths
         }
         # logging.debug(self.mecha_instances)
 
@@ -304,7 +334,7 @@ class MechaLanguageServer(LanguageServer):
     
     def get_instance(self, config_path: Path):
         if config_path not in self.instances or self.instances[config_path] is None:
-            instance = create_instance(config_path, self._sites)
+            instance = self.create_instance(config_path, self._sites)
 
             if instance is not None:
                 self.instances[config_path] = instance
