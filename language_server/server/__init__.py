@@ -334,7 +334,7 @@ class MechaLanguageServer(LanguageServer):
     
     def get_instance(self, config_path: Path):
         if config_path not in self.instances or self.instances[config_path] is None:
-            instance = self.create_instance(config_path, self._sites)
+            instance = self.create_instance(config_path)
 
             if instance is not None:
                 self.instances[config_path] = instance
