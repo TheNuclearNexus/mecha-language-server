@@ -17,8 +17,9 @@ from pygls.workspace import TextDocument
 
 from language_server.server.features.helpers import get_node_at_position
 from language_server.server.indexing import AstTypedTarget, AstTypedTargetIdentifier
+from language_server.server.shadows import CompiledDocument
 
-from ...server import GAME_REGISTRIES, CompiledDocument, MechaLanguageServer
+from ...server import GAME_REGISTRIES, MechaLanguageServer
 from .validate import get_compilation_data
 from mecha.ast import AstError
 

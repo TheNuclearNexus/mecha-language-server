@@ -30,11 +30,13 @@ def get_definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
     if isinstance(node, AstIdentifier) or isinstance(node, AstTargetIdentifier):
         var_name = node.value
 
-        binding, scope = search_scope_for_binding(var_name, node, scope)
+        result = search_scope_for_binding(var_name, node, scope)
 
-        if not binding:
+        if not result:
             return
         
+        binding, scope = result
+
         range = node_location_to_range(binding.origin)
         
         return lsp.Location(params.text_document.uri, range)

@@ -12,12 +12,10 @@ from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
 from language_server.server.indexing import MetaDataAttacher, index_function_ast
+from language_server.server.shadows import LanguageServerContext, CompiledDocument, COMPILATION_RESULTS
 
 from .. import (
-    COMPILATION_RESULTS,
-    PATH_TO_RESOURCE,
-    CompiledDocument,
-    MechaLanguageServer,
+    MechaLanguageServer
 )
 
 
@@ -65,7 +63,7 @@ def tokenstream_error_to_lsp_diag(
     )
 
 
-def get_compilation_data(ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument):
+def get_compilation_data(ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument):
     if text_doc.uri in COMPILATION_RESULTS:
         return COMPILATION_RESULTS[text_doc.uri]
 
@@ -74,19 +72,19 @@ def get_compilation_data(ls: MechaLanguageServer, ctx: Context, text_doc: TextDo
 
 
 def validate_function(
-    ls: MechaLanguageServer, ctx: Context, text_doc: TextDocument
+    ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument
 ) -> list[InvalidSyntax]:
     logging.debug(f"Parsing function:\n{text_doc.source}")
 
     path = os.path.normcase(os.path.normpath(text_doc.path))
 
-    if path not in PATH_TO_RESOURCE:
+    if path not in ctx.path_to_resource:
         COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
             ctx, "", None, [], None, None
         )
         return []
 
-    location, file = PATH_TO_RESOURCE[path]
+    location, file = ctx.path_to_resource[path]
 
     if not isinstance(file, Function) and not isinstance(file, Module):
         COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
