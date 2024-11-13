@@ -9,3 +9,4 @@ mecha.log
 *.vsix
 .DS_Store
 dist/
+build/
