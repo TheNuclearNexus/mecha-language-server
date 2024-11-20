@@ -145,7 +145,8 @@ def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
                         prefix = str(key / relative)
                         break
         elif PurePath(file_path).is_relative_to(entry):
-            prefix = str(entry)
+            relative = PurePath(file_path).relative_to(entry)
+            prefix = str(relative)
         
     if prefix == None:
         return False
