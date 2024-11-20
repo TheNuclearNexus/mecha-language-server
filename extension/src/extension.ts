@@ -54,7 +54,7 @@ function registerCommand(
     commandIdentifier: string,
     callback: () => any
 ) {
-    logger.info(commandIdentifier)
+    logger.info(commandIdentifier);
     context.subscriptions.push(
         vscode.commands.registerCommand(commandIdentifier, callback)
     );
@@ -83,38 +83,39 @@ export async function activate(context: vscode.ExtensionContext) {
                 "Failed to download extension\n" + resp.statusText
             );
 
-        
-        const buffer = await resp.arrayBuffer()
-        const zip = await JSZip.loadAsync(buffer)
+        const buffer = await resp.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
 
         let extension = undefined;
         for (const file in zip.files) {
             if (file.endsWith(".vsix")) {
-                extension = file
-                break
+                extension = file;
+                break;
             }
         }
 
         if (extension === undefined) {
-            return vscode.window.showErrorMessage("Failed to find .vsix in zip")
-        } 
+            return vscode.window.showErrorMessage(
+                "Failed to find .vsix in zip"
+            );
+        }
 
-        const filePath = path.join(context.extensionPath, "..", "update.vsix")
+        const filePath = path.join(context.extensionPath, "..", "update.vsix");
 
         fs.writeFileSync(
             filePath,
-            await zip.file(extension).async('nodebuffer')
+            await zip.file(extension).async("nodebuffer")
         );
 
         if (context.extensionMode == vscode.ExtensionMode.Production) {
             await vscode.commands.executeCommand(
                 "workbench.extensions.uninstallExtension",
                 "thenuclearnexus.mecha-language-server"
-            )
+            );
             vscode.commands.executeCommand(
                 "workbench.extensions.installExtension",
                 vscode.Uri.file(filePath)
-            );  
+            );
         }
     });
 

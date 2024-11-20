@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 import logging
 import os
+from pathlib import Path, PurePath
 import traceback
 from typing import Any
-from beet import Context, Function, TextFileBase
+from beet import Context, DataPack, Function, PackLoadUrl, PackageablePath, TextFileBase
+from beet.contrib.load import load
 from bolt import CompiledModule, Module, Runtime
 from lsprotocol import types as lsp
 from mecha import AstChildren, AstNode, AstRoot, CompilationUnit, Mecha
@@ -12,11 +14,16 @@ from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
 from language_server.server.indexing import MetaDataAttacher, index_function_ast
-from language_server.server.shadows import LanguageServerContext, CompiledDocument, COMPILATION_RESULTS
-
-from .. import (
-    MechaLanguageServer
+from language_server.server.shadows import (
+    LanguageServerContext,
+    CompiledDocument,
+    COMPILATION_RESULTS,
 )
+
+from .. import MechaLanguageServer
+
+
+SUPPORTED_EXTENSIONS = [Function.extension, Module.extension]
 
 
 def validate(
@@ -63,7 +70,9 @@ def tokenstream_error_to_lsp_diag(
     )
 
 
-def get_compilation_data(ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument):
+def get_compilation_data(
+    ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument
+):
     if text_doc.uri in COMPILATION_RESULTS:
         return COMPILATION_RESULTS[text_doc.uri]
 
@@ -79,10 +88,12 @@ def validate_function(
     path = os.path.normcase(os.path.normpath(text_doc.path))
 
     if path not in ctx.path_to_resource:
-        COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
-            ctx, "", None, [], None, None
-        )
-        return []
+        if not try_to_mount_file(ctx, path):
+            COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
+                ctx, "", None, [], None, None
+            )
+            return []
+            
 
     location, file = ctx.path_to_resource[path]
 
@@ -91,20 +102,75 @@ def validate_function(
             ctx, location, None, [], None, None
         )
         return []
-    
+
     # file.text = text_doc.source
 
     # file.set_content(text_doc.source)
 
-    compiled_doc = parse_function(ctx, location, type(file)(text_doc.source, text_doc.path))
+    compiled_doc = parse_function(
+        ctx, location, type(file)(text_doc.source, text_doc.path)
+    )
 
     COMPILATION_RESULTS[text_doc.uri] = compiled_doc
 
     return compiled_doc.diagnostics
 
 
+def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
+    """Try to mount a given file path to the context. True if the file was successfully mounted"""
+
+    _, file_extension = os.path.splitext(file_path)
+    logging.debug(f"\n\nTry to mount {file_path}, {file_extension}\n\n")
+    if not file_extension in SUPPORTED_EXTENSIONS:
+        return False
+
+    load_options = ctx.project_config.data_pack.load
+    prefix = None
+    for entry in load_options.entries():
+        # File can't be relative to a url
+        if isinstance(entry, PackLoadUrl):
+            continue
+
+        if isinstance(entry, dict):
+            for key, paths in entry.items():
+                for path in paths.entries():
+                    logging.debug(f"\n\n{path}")
+                    # File can't be relative to a url
+                    if isinstance(path, PackLoadUrl):
+                        continue
+
+                    if PurePath(file_path).is_relative_to(path):
+                        logging.debug('was relative too')
+                        relative = PurePath(file_path).relative_to(path)
+                        prefix = str(key / relative)
+                        break
+        elif PurePath(file_path).is_relative_to(entry):
+            prefix = str(entry)
+        
+    if prefix == None:
+        return False
+
+    try:
+        temp = DataPack()
+        temp.mount(prefix, file_path)
+        for [location, file] in temp.all():
+            if not (isinstance(file, Function) or isinstance(file, Module)):
+                continue
+
+            path = os.path.normpath(file.ensure_source_path())
+            path = os.path.normcase(path)
+            ctx.path_to_resource[path] = (location, file)
+            ctx.data[type(file)][location] = file
+
+        return True
+    except Exception as exc:
+        logging.error(f"Failed to mount {path}, reloading datapack,\n{exc}")
+
+    return False
+
+
 def parse_function(
-    ctx: Context, location: str, function: Function | Module
+    ctx: LanguageServerContext, location: str, function: Function | Module
 ) -> CompiledDocument:
     mecha = ctx.inject(Mecha)
 
@@ -132,7 +198,6 @@ def parse_function(
         logging.error(f"{tb}")
     except Exception as exec:
         logging.error(f"{type(exec)}: {exec}")
-
 
     ast = index_function_ast(ast, location)
     for node in ast.walk():

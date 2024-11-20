@@ -5,10 +5,12 @@ from urllib import request
 from beet import (
     Context,
     NamespaceFile,
+    PluginImportError,
     Project,
     ProjectConfig,
     load_config,
     PluginError,
+    locate_config,
 )
 from beet.library.base import LATEST_MINECRAFT_VERSION
 
@@ -85,7 +87,7 @@ class MechaLanguageServer(LanguageServer):
                 os.remove(file_path)
 
 
-    def create_context(self, config: ProjectConfig, config_path: Path) -> Context: 
+    def create_context(self, config: ProjectConfig, config_path: Path) -> LanguageServerContext: 
         """Attempt to configure the project's context and run necessary plugins"""
         project = Project(config, None, config_path)
 
@@ -95,7 +97,7 @@ class MechaLanguageServer(LanguageServer):
             
     def create_instance(
         self, config_path: Path
-    ) -> Context | None:
+    ) -> LanguageServerContext | None:
         config = load_config(config_path)
         logging.debug(config)
         # Ensure that we aren't loading in all project files
@@ -115,7 +117,8 @@ class MechaLanguageServer(LanguageServer):
 
         try:
             instance = self.create_context(config, config_path)
-
+        except PluginImportError as plugin_error:
+            logging.error(f"Plugin Import Error: {plugin_error}\n{plugin_error.__cause__}")
         except PluginError as plugin_error:
             logging.error(plugin_error.__cause__)
             raise plugin_error.__cause__
@@ -141,14 +144,13 @@ class MechaLanguageServer(LanguageServer):
         for w in self.workspace.folders.values():
             ws_path = self.uri_to_path(w.uri)
 
-            for config_type in CONFIG_TYPES:
-                for config_path in ws_path.glob("**/" + config_type):
-                    config_paths.append(config_path)
-                    logging.debug(config_path)
+            if config_path := locate_config(ws_path):
+                config_paths.append(config_path)            
 
         for config_path in config_paths:
             try:
-                self.instances[config_path.parent] = self.create_instance(config_path)
+                if config := self.create_instance(config_path):
+                    self.instances[config_path.parent] = config
             except Exception as exc:
                 logging.error(f"Failed to load config at {config_path} due to the following\n{exc}")
 

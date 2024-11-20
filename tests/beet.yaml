@@ -5,7 +5,9 @@ require:
   - bolt_expressions
 
 data_pack:
-  load: .
+  load: 
+   - .
+   - data/test/functions: foo
 
 meta:
   bolt:

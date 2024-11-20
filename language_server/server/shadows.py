@@ -9,6 +9,7 @@ from beet import (
     NamespaceFile,
     PluginSpec,
     ProjectBuilder,
+    ProjectConfig,
     Task,
     PluginError,
     Pipeline,
@@ -68,8 +69,10 @@ class PipelineShadow(Pipeline):
 @dataclass(frozen=True)
 class LanguageServerContext(Context):
     show_message: Callable[[Any, lsp.MessageType], None] = required_field()
+    project_config: ProjectConfig = required_field()
 
     path_to_resource: dict[str, tuple[str, NamespaceFile]] = extra_field(default_factory=dict)
+
 
     def require(self, *args: PluginSpec):
         """Execute the specified plugin."""
@@ -123,6 +126,7 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             ctx = LanguageServerContext(
                 show_message=show_message,
+                project_config=self.config,
                 project_id=self.config.id or normalize_string(name),
                 project_name=name,
                 project_description=self.config.description,

@@ -13,3 +13,4 @@ function ./foo/baz:
 
 function ~/baz2:
     pass
+    
