@@ -120,7 +120,6 @@ def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
     """Try to mount a given file path to the context. True if the file was successfully mounted"""
 
     _, file_extension = os.path.splitext(file_path)
-    logging.debug(f"\n\nTry to mount {file_path}, {file_extension}\n\n")
     if not file_extension in SUPPORTED_EXTENSIONS:
         return False
 
@@ -134,13 +133,11 @@ def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
         if isinstance(entry, dict):
             for key, paths in entry.items():
                 for path in paths.entries():
-                    logging.debug(f"\n\n{path}")
                     # File can't be relative to a url
                     if isinstance(path, PackLoadUrl):
                         continue
 
                     if PurePath(file_path).is_relative_to(path):
-                        logging.debug('was relative too')
                         relative = PurePath(file_path).relative_to(path)
                         prefix = str(key / relative)
                         break
