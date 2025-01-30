@@ -305,7 +305,7 @@ async function checkForVenv(pythonCommand: string) {
     logger.debug("Checking if python is a venv")
 
     try {
-        const [error, stdout] = await runPythonCommand(pythonCommand, ["-c", "'import sys; print(sys.prefix != sys.base_prefix)'"])
+        const [error, stdout] = await runPythonCommand(pythonCommand, ["-c", "\"import sys; print(sys.prefix != sys.base_prefix)\""])
         if (error) throw error
 
         if(!stdout.includes("True")) {
