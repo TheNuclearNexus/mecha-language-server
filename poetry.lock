@@ -486,18 +486,6 @@ files = [
 ]
 
 [[package]]
-name = "pip"
-version = "24.0"
-description = "The PyPA recommended tool for installing Python packages."
-optional = false
-python-versions = ">=3.7"
-groups = ["main"]
-files = [
-    {file = "pip-24.0-py3-none-any.whl", hash = "sha256:ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc"},
-    {file = "pip-24.0.tar.gz", hash = "sha256:ea9bd1a847e8c5774a5777bb398c19e80bcd4e2aa16a4b301b718fe6f593aba2"},
-]
-
-[[package]]
 name = "pluggy"
 version = "1.5.0"
 description = "plugin and hook calling mechanisms for python"
@@ -760,42 +748,6 @@ pygments = ">=2.6.0,<3.0.0"
 jupyter = ["ipywidgets (>=7.5.1,<8.0.0)"]
 
 [[package]]
-name = "setuptools"
-version = "70.0.0"
-description = "Easily download, build, install, upgrade, and uninstall Python packages"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "setuptools-70.0.0-py3-none-any.whl", hash = "sha256:54faa7f2e8d2d11bcd2c07bed282eef1046b5c080d1c32add737d7b5817b1ad4"},
-    {file = "setuptools-70.0.0.tar.gz", hash = "sha256:f211a66637b8fa059bb28183da127d4e86396c991a942b028c6650d4319c3fd0"},
-]
-
-[package.extras]
-docs = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "pygments-github-lexers (==0.0.5)", "pyproject-hooks (!=1.1)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-favicon", "sphinx-inline-tabs", "sphinx-lint", "sphinx-notfound-page (>=1,<2)", "sphinx-reredirects", "sphinxcontrib-towncrier"]
-testing = ["build[virtualenv] (>=1.0.3)", "filelock (>=3.4.0)", "importlib-metadata", "ini2toml[lite] (>=0.14)", "jaraco.develop (>=7.21)", "jaraco.envs (>=2.2)", "jaraco.path (>=3.2.0)", "mypy (==1.9)", "packaging (>=23.2)", "pip (>=19.1)", "pyproject-hooks (!=1.1)", "pytest (>=6,!=8.1.1)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-home (>=0.5)", "pytest-mypy", "pytest-perf", "pytest-ruff (>=0.2.1)", "pytest-subprocess", "pytest-timeout", "pytest-xdist (>=3)", "tomli", "tomli-w (>=1.0.0)", "virtualenv (>=13.0.0)", "wheel"]
-
-[[package]]
-name = "shiv"
-version = "1.0.6"
-description = "A command line utility for building fully self contained Python zipapps."
-optional = false
-python-versions = ">=3.6"
-groups = ["main"]
-files = [
-    {file = "shiv-1.0.6-py2.py3-none-any.whl", hash = "sha256:a6ab14ba82729b7e9775e41e3beca02375c888115d0c060fc3bd980b37cb0495"},
-    {file = "shiv-1.0.6.tar.gz", hash = "sha256:e222768135977bebdfb5c0d1a7dfea29557c566b58d300d5b8c2535ef223d776"},
-]
-
-[package.dependencies]
-click = ">=6.7,<7.0 || >7.0"
-pip = ">=9.0.3"
-setuptools = "*"
-
-[package.extras]
-rtd = ["sphinx-click"]
-
-[[package]]
 name = "tokenstream"
 version = "1.7.0"
 description = "A versatile token stream for handwritten parsers"
@@ -834,4 +786,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "8b706fb69e4743cbddb41a8d5ec2dd0c8bc82e20c46ca2290f2bb9775a88dcbf"
+content-hash = "514a3d9ee5a0719d4ede8ce412cf83a178ab6ab3174a7fe003d0a6ed71c1f0cc"

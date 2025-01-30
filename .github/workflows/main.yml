@@ -30,13 +30,17 @@ jobs:
     - name: Use Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: 18.x
+        node-version: 20.x
         cache: 'npm'
         cache-dependency-path: extension/package-lock.json
     - name: Build VSC Extension
-      run: cd ./extension && npm ci && npm i -g vsce && vsce package
+      run: cd ./extension && npm i && npx vsce package
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v3.0.0
+      uses: actions/upload-artifact@v4.0.0
       with:
         path: 'extension/*.vsix'
         name: extension
+    - name: Semantic Release
+      run: cd ./extension && npx semantic-release
+      env:
+        VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
