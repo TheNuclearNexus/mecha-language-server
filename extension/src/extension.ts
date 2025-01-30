@@ -33,8 +33,9 @@ import {
     URI,
     integer,
 } from "vscode-languageclient/node";
-import { exec } from "child_process";
+import { exec, ExecException } from "child_process";
 import * as JSZip from "jszip";
+import { log } from "console";
 
 const MIN_PYTHON = semver.parse("3.7.9");
 
@@ -174,23 +175,6 @@ export function deactivate(): Thenable<void> {
     return stopLangServer();
 }
 
-function getBeetConfig(context: vscode.ExtensionContext) {
-    try {
-        const wsPath = vscode.workspace.workspaceFolders[0].uri.fsPath;
-
-        const beetConfigs = ["beet.json", "beet.yaml", "beet.yml"].map((b) =>
-            path.resolve(wsPath, b)
-        );
-
-        logger.debug(beetConfigs.toString());
-        const config = beetConfigs.find((b) => fs.existsSync(b));
-
-        return config;
-    } catch (e) {
-        logger.error(e);
-        return undefined;
-    }
-}
 
 /**
  * Start (or restart) the language server.
@@ -221,9 +205,12 @@ async function startLangServer(context: vscode.ExtensionContext) {
 
     const resource = vscode.Uri.joinPath(vscode.Uri.file(cwd), serverPath);
     const pythonCommand = await getPythonCommand(resource);
-    if (!pythonCommand) {
-        clientStarting = false;
-        return;
+
+    logger.debug("Checking enviroment...")
+    const successful = await checkEnviroment(pythonCommand);
+    if (!successful) {
+        clientStarting = false
+        return
     }
 
     const args: string[] = [];
@@ -276,13 +263,106 @@ async function startLangServer(context: vscode.ExtensionContext) {
     logger.debug("server has started");
 }
 
+async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
+    if (!pythonCommand) {
+        vscode.window.showErrorMessage("No Python installation configured!", 'Configure Python').then((selection) => {
+            if (selection != "Configure Python")
+                return;
+
+            if (!python)
+                return vscode.window.showErrorMessage("Python extension is not installed!");
+
+            vscode.commands.executeCommand("python.setInterpreter");
+        });
+        return false
+    }
+
+    await checkForVenv(pythonCommand[0]);
+
+    if (!(await hasBeet(pythonCommand[0]))) {
+        vscode.window.showErrorMessage("Beet is not installed in this enviroment!", "Install Beet").then(async (selection) => {
+            if (selection == "Install Beet")
+                await installBeet(pythonCommand[0]);
+        });
+        return false
+    }
+
+    return true
+}
+
+async function runPythonCommand(pythonCommand: string, args: string[]): Promise<[ExecException|null, string]> {
+    return new Promise<[ExecException|null, string]>((resolve) => {
+        exec(
+            [pythonCommand, ...args].join(" "),
+            (error, stdout, _) => {
+                resolve([error, stdout])
+            }
+        )
+    })
+}
+
+async function checkForVenv(pythonCommand: string) {
+    logger.debug("Checking if python is a venv")
+
+    try {
+        const [error, stdout] = await runPythonCommand(pythonCommand, ["-c", "'import sys; print(sys.prefix != sys.base_prefix)'"])
+        if (error) throw error
+
+        if(!stdout.includes("True")) {
+            vscode.window.showWarningMessage("It's recommended to use Beet within a Virtual Enviroment", "Configure Python", "Learn More").then(selection => {
+                if (selection == "Configure Python") {
+                    vscode.commands.executeCommand("python.setInterpreter")
+                } else if (selection == "Learn More") {
+                    vscode.env.openExternal(vscode.Uri.parse("https://docs.python.org/3/library/venv.html"))
+                }
+            })
+        }
+    } catch (e) {
+        logger.error(`Error encountered while checking for venv!\n${e}`)
+    }
+}
+
+async function hasBeet(pythonCommand: string): Promise<boolean> {
+    logger.debug("Checking if beet is install in the enviroment...")
+    try {
+        const [error, stdout] = await runPythonCommand(pythonCommand, ["-m", "pip", "list"])
+        
+        if (error) return false
+
+        return stdout.match(/beet\s+([0-9]\.?)+/g) != null
+    } catch (e) {
+        logger.error(`Error encountered while checking for beet!\n${e}`)
+        return false
+    }
+}
+
+async function installBeet(pythonCommand: string) {
+    logger.debug("Installing beet and recommended packages...")
+    try {
+        const [error, _] = await runPythonCommand(pythonCommand, ["-m", "pip", "install", "beet", "mecha", "bolt"])
+        if (error) throw error
+
+        vscode.window.showInformationMessage("Beet has been successfully installed!", "Restart Language Server").then(selection => {
+            if (selection != "Restart Language Server")
+                return
+
+            vscode.commands.executeCommand("mecha.server.restart")
+        })
+    } catch (e) {
+        const message = `Error encountered while installing beet!\n${e}`
+        vscode.window.showErrorMessage(message.split('\n')[0])
+        logger.error(message)
+        return false
+    }
+}
+
 async function getSitePackages(pythonCommand: string): Promise<string[]> {
     logger.debug("Getting python site packages...");
     try {
         const json = await new Promise<string>((resolve, reject) => {
             exec(
                 `${pythonCommand} -c "import site; import json;  print(json.dumps(site.getsitepackages()))"`,
-                (error, stdout, stderr) => {
+                (error, stdout) => {
                     if (error) return reject(error);
 
                     return resolve(stdout);
@@ -343,25 +423,6 @@ function getClientOptions(): LanguageClientOptions {
     return options;
 }
 
-function startLangServerTCP(addr: number): LanguageClient {
-    const serverOptions: ServerOptions = () => {
-        return new Promise((resolve /*, reject */) => {
-            const clientSocket = new net.Socket();
-            clientSocket.connect(addr, "127.0.0.1", () => {
-                resolve({
-                    reader: clientSocket,
-                    writer: clientSocket,
-                });
-            });
-        });
-    };
-
-    return new LanguageClient(
-        `tcp lang server (port ${addr})`,
-        serverOptions,
-        getClientOptions()
-    );
-}
 
 /**
  * Execute a command provided by the language server.
@@ -403,15 +464,6 @@ async function executeServerCommand() {
     );
 }
 
-/**
- *
- * @returns The python script that implements the server.
- */
-function getServerPath(): string {
-    const config = vscode.workspace.getConfiguration("mecha.server");
-    const server = config.get<string>("launchScript");
-    return server;
-}
 
 /**
  * Return the python command to use when starting the server.
