@@ -15,7 +15,12 @@ from pygls.workspace import TextDocument
 from language_server.server.features.helpers import get_node_at_position
 from ..indexing import get_type_annotation
 from language_server.server.shadows import CompiledDocument, LanguageServerContext
-from ..utils.reflection import UNKNOWN_TYPE, format_function_hints, get_name_of_type, get_type_info
+from ..utils.reflection import (
+    UNKNOWN_TYPE,
+    format_function_hints,
+    get_name_of_type,
+    get_type_info,
+)
 
 from ...server import GAME_REGISTRIES, MechaLanguageServer
 from .validate import get_compilation_data

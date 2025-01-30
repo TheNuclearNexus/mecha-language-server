@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 import inspect
 import logging
 from types import NoneType
-from typing import Any
+from typing import Any, Literal, Union, get_args
 from beet import Context
 from beet.core.utils import required_field
 from lsprotocol import types as lsp
@@ -19,6 +19,8 @@ from mecha import (
 from mecha.contrib.nested_location import AstNestedLocation
 from bolt import (
     AstAttribute,
+    AstClassBases,
+    AstClassName,
     AstExpression,
     AstExpressionUnary,
     AstFunctionSignatureArgument,
@@ -42,47 +44,53 @@ from ..indexing import get_type_annotation, set_type_annotation
 from .helpers import offset_location
 from language_server.server.features.validate import get_compilation_data
 
-TOKEN_TYPE_LIST = [
-    "comment",
-    "string",
-    "keyword",
-    "number",
-    "regexp",
-    "operator",
-    "namespace",
-    "type",
-    "struct",
-    "class",
-    "interface",
-    "enum",
-    "typeParameter",
-    "function",
-    "method",
-    "decorator",
-    "macro",
-    "variable",
-    "parameter",
-    "property",
-    "label",
+
+_TokenModifier = Union[
+    Literal["declaration"],
+    Literal["definition"],
+    Literal["readonly"],
+    Literal["static"],
+    Literal["deprecated"],
+    Literal["abstract"],
+    Literal["async"],
+    Literal["modification"],
+    Literal["documentation"],
+    Literal["defaultLibrary"],
 ]
 
-TOKEN_MODIFIER_LIST = [
-    "declaration",
-    "definition",
-    "readonly",
-    "static",
-    "deprecated",
-    "abstract",
-    "async",
-    "modification",
-    "documentation",
-    "defaultLibrary",
+_TokenType = Union[
+    Literal["comment"],
+    Literal["string"],
+    Literal["keyword"],
+    Literal["number"],
+    Literal["regexp"],
+    Literal["operator"],
+    Literal["namespace"],
+    Literal["type"],
+    Literal["struct"],
+    Literal["class"],
+    Literal["interface"],
+    Literal["enum"],
+    Literal["typeParameter"],
+    Literal["function"],
+    Literal["method"],
+    Literal["decorator"],
+    Literal["macro"],
+    Literal["variable"],
+    Literal["parameter"],
+    Literal["property"],
+    Literal["label"],
 ]
 
-TOKEN_TYPES = {TOKEN_TYPE_LIST[i]: i for i in range(len(TOKEN_TYPE_LIST))}
-TOKEN_MODIFIERS = {
-    TOKEN_MODIFIER_LIST[i]: pow(2, i) for i in range(len(TOKEN_MODIFIER_LIST))
+TOKEN_TYPES: dict[_TokenType, int] = {
+    get_args(literal)[0]: i for (i, literal) in enumerate(get_args(_TokenType))
 }
+
+TOKEN_MODIFIERS: dict[_TokenModifier, int] = {
+    get_args(literal)[0]: pow(2, i)
+    for (i, literal) in enumerate(get_args(_TokenModifier))
+}
+
 # logging.debug(TOKEN_MODIFIERS)
 # token tuple
 # 0: line offset
@@ -180,30 +188,30 @@ class SemanticTokenCollector(Reducer):
     def value(self, value: AstValue):
         if not (annotation := get_type_annotation(value)):
             return
-        
+
         if annotation is NoneType:
-            self.nodes.append((value, TOKEN_TYPES["variable"], TOKEN_MODIFIERS["readonly"]))
+            self.nodes.append(
+                (value, TOKEN_TYPES["variable"], TOKEN_MODIFIERS["readonly"])
+            )
         elif annotation is bool:
-            self.nodes.append((value, TOKEN_TYPES["number"], 0))
+            self.nodes.append((value, TOKEN_TYPES["macro"], 0))
 
     @rule(AstAttribute)
     def attribute(self, attribute: AstAttribute):
-        
 
         attribute_location = AstIdentifier(
             location=SourceLocation(
                 attribute.end_location.pos - len(attribute.name),
                 attribute.end_location.lineno,
-                attribute.end_location.colno - len(attribute.name)
+                attribute.end_location.colno - len(attribute.name),
             ),
             end_location=attribute.end_location,
-            value=attribute.name
+            value=attribute.name,
         )
-        
+
         set_type_annotation(attribute_location, get_type_annotation(attribute))
 
         self.generic_identifier(attribute_location)
-        
 
     @rule(AstItemSlot)
     def item_slot(self, item_slot: AstItemSlot):
@@ -215,6 +223,10 @@ class SemanticTokenCollector(Reducer):
     def resource_location(self, resource_location: AstResourceLocation):
         self.nodes.append((resource_location, TOKEN_TYPES["function"], 0))
 
+    @rule(AstClassName)
+    def class_name(self, class_name: AstClassName):
+        self.nodes.append((class_name, TOKEN_TYPES["class"], 0))
+
     @rule(AstFunctionSignature)
     def function_signature(self, signature: AstFunctionSignature):
         location: SourceLocation = signature.location
@@ -223,6 +235,12 @@ class SemanticTokenCollector(Reducer):
             end_location=offset_location(signature.location, len(signature.name)),
         )
         self.nodes.append((node, TOKEN_TYPES["function"], 0))
+
+        if len(signature.arguments) >= 1:
+            first = signature.arguments[0]
+
+            if isinstance(first, AstFunctionSignatureArgument) and first.name == "self":
+                self.nodes.append((first, TOKEN_TYPES["macro"], 0))
 
     @rule(AstFunctionSignatureArgument)
     def function_signature_argument(self, argument: AstFunctionSignatureArgument):
@@ -240,23 +258,26 @@ class SemanticTokenCollector(Reducer):
 
     def generic_identifier(self, identifier: Any):
         annotation = get_type_annotation(identifier)
-        
-        
+
         if annotation is not None and inspect.isfunction(annotation):
             self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
         else:
+            kind = TOKEN_TYPES["variable"]
+            modifiers = 0
+            if hasattr(identifier, "value"):
+                value = getattr(identifier, "value")
+
+                if isinstance(value, str):
+                    if value.isupper():
+                        modifiers += TOKEN_MODIFIERS["readonly"]
+                    elif value == "self":
+                        kind = TOKEN_TYPES["macro"]
+
             self.nodes.append(
                 (
                     identifier,
-                    TOKEN_TYPES["variable"],
-                    (
-                        0
-                        if not (
-                            hasattr(identifier, "value")
-                            and getattr(identifier, "value").isupper()
-                        )
-                        else TOKEN_MODIFIERS["readonly"]
-                    ),
+                    kind,
+                    modifiers,
                 )
             )
 

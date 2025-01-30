@@ -26,8 +26,6 @@ def rename_variable(ls: MechaLanguageServer, params: lsp.RenameParams):
     if isinstance(node, AstIdentifier) or isinstance(node, AstTargetIdentifier):
         var_name = node.value
 
-        
-
         if not (result := search_scope_for_binding(var_name, node, scope)):
             return
         binding, _ = result
@@ -36,12 +34,10 @@ def rename_variable(ls: MechaLanguageServer, params: lsp.RenameParams):
 
         origin_node = AstNode(
             binding.origin.location,
-            offset_location(binding.origin.location, len(var_name))
+            offset_location(binding.origin.location, len(var_name)),
         )
 
-        edits.append(
-            lsp.TextEdit(node_location_to_range(origin_node), params.new_name)
-        )
+        edits.append(lsp.TextEdit(node_location_to_range(origin_node), params.new_name))
 
         for reference in binding.references:
             edits.append(

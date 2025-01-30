@@ -15,8 +15,6 @@ from .helpers import (
 from .. import MechaLanguageServer
 
 
-
-
 def get_definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
     compiled_doc = fetch_compilation_data(ls, params)
 
@@ -34,9 +32,9 @@ def get_definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
 
         if not result:
             return
-        
+
         binding, scope = result
 
         range = node_location_to_range(binding.origin)
-        
+
         return lsp.Location(params.text_document.uri, range)

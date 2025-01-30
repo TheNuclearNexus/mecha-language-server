@@ -1,3 +1,4 @@
-foo: int = 1
-foo += 2
+TEST = @s
+
+TEST.positioned((1,1,1)).tag("foo").tag("bar", False)
 

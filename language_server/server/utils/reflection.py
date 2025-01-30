@@ -22,7 +22,9 @@ class FunctionInfo:
     doc: str | None
 
     @staticmethod
-    def from_signature(signature: inspect.Signature, doc: str | None, hints: dict[str, Any]) -> "FunctionInfo":
+    def from_signature(
+        signature: inspect.Signature, doc: str | None, hints: dict[str, Any]
+    ) -> "FunctionInfo":
         return FunctionInfo(
             parameters=[
                 (
@@ -33,7 +35,7 @@ class FunctionInfo:
                 )
                 for name, parameter in signature.parameters.items()
             ],
-            return_annotation=hints.get('return') or signature.return_annotation,
+            return_annotation=hints.get("return") or signature.return_annotation,
             doc=doc,
         )
 

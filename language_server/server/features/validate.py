@@ -92,7 +92,6 @@ def validate_function(
     if path not in ctx.path_to_resource:
         if not try_to_mount_file(ctx, path):
             return []
-            
 
     location, file = ctx.path_to_resource[path]
 
@@ -143,7 +142,7 @@ def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
         elif PurePath(file_path).is_relative_to(entry):
             relative = PurePath(file_path).relative_to(entry)
             prefix = str(relative)
-        
+
     if prefix == None:
         return False
 
@@ -204,7 +203,7 @@ def parse_function(
         logging.error(f"{type(exec)}: {exec}")
 
     dependents = set()
-    
+
     compiled_module = None
     if location in COMPILATION_RESULTS:
         prev_compilation = COMPILATION_RESULTS[location]
@@ -215,7 +214,9 @@ def parse_function(
         runtime = ctx.inject(Runtime)
 
         if fresh_module := runtime.modules.get(function):
-            fresh_module.ast = index_function_ast(fresh_module.ast, location, fresh_module)
+            fresh_module.ast = index_function_ast(
+                fresh_module.ast, location, fresh_module
+            )
 
             for dependency in fresh_module.dependencies:
                 if dependency in COMPILATION_RESULTS:
@@ -230,12 +231,12 @@ def parse_function(
         if not dependent in COMPILATION_RESULTS:
             continue
 
-        parse_function(ctx, dependency, ctx.data.functions[dependent] or ctx.data[Module][dependent])
+        parse_function(
+            ctx,
+            dependency,
+            ctx.data.functions[dependent] or ctx.data[Module][dependent],
+        )
         del COMPILATION_RESULTS[dependency]
-                
-
-
-    
 
     return CompiledDocument(
         resource_location=location,
@@ -244,5 +245,5 @@ def parse_function(
         compiled_unit=compiled_unit,
         compiled_module=compiled_module,
         ctx=ctx,
-        dependents=dependents
+        dependents=dependents,
     )

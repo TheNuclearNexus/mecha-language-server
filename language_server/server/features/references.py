@@ -1,7 +1,12 @@
 from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 
-from .helpers import fetch_compilation_data, get_node_at_position, node_location_to_range, search_scope_for_binding
+from .helpers import (
+    fetch_compilation_data,
+    get_node_at_position,
+    node_location_to_range,
+    search_scope_for_binding,
+)
 
 from .. import MechaLanguageServer
 
@@ -22,9 +27,9 @@ def get_references(ls: MechaLanguageServer, params: lsp.ReferenceParams):
         binding = search_scope_for_binding(var_name, node, scope)
         if not (result := search_scope_for_binding(var_name, node, scope)):
             return
-        
+
         binding, _ = result
-        
+
         locations = []
         for reference in binding.references:
             range = node_location_to_range(reference)

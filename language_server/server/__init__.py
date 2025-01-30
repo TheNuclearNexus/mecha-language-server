@@ -30,7 +30,6 @@ from urllib.request import url2pathname
 from .shadows import LanguageServerContext, ProjectBuilderShadow
 
 
-
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
@@ -47,7 +46,7 @@ class MechaLanguageServer(LanguageServer):
     def __init__(self, *args):
         super().__init__(*args)
         self.instances = {}
-    
+
     def load_registry(self, minecraft_version: str):
         """Load the game registry from Misode's mcmeta repository"""
         global GAME_REGISTRIES
@@ -58,7 +57,7 @@ class MechaLanguageServer(LanguageServer):
         cache_dir = Path("./.mls_cache")
         if not cache_dir.exists():
             os.mkdir(cache_dir)
-        
+
         if not (cache_dir / "registries").exists():
             os.mkdir(cache_dir / "registries")
 
@@ -68,38 +67,49 @@ class MechaLanguageServer(LanguageServer):
 
         if not file_path.exists():
             try:
-                request.urlretrieve(f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json", file_path)
-            except Exception as exc: 
-                self.show_message(f"Failed to download registry for version {minecraft_version}, completions will be disabled\n{exc}", lsp.MessageType.Error)
-                
+                request.urlretrieve(
+                    f"https://raw.githubusercontent.com/misode/mcmeta/refs/tags/{minecraft_version}-summary/registries/data.min.json",
+                    file_path,
+                )
+            except Exception as exc:
+                self.show_message(
+                    f"Failed to download registry for version {minecraft_version}, completions will be disabled\n{exc}",
+                    lsp.MessageType.Error,
+                )
+
                 return
 
         with open(file_path) as file:
             try:
                 registries = json.loads(file.read())
                 for k in registries:
-                    GAME_REGISTRIES[k] = registries[k]     
+                    GAME_REGISTRIES[k] = registries[k]
 
             except json.JSONDecodeError as exc:
-                self.show_message(f"Failed to parse registry for version {minecraft_version}, completions will be disabled\n{exc}", lsp.MessageType.Error)
+                self.show_message(
+                    f"Failed to parse registry for version {minecraft_version}, completions will be disabled\n{exc}",
+                    lsp.MessageType.Error,
+                )
                 os.remove(file_path)
 
             except Exception as exc:
-                self.show_message(f"An unhandled exception occured loading registry for version {minecraft_version}\n{exc}", lsp.MessageType.Error)
+                self.show_message(
+                    f"An unhandled exception occured loading registry for version {minecraft_version}\n{exc}",
+                    lsp.MessageType.Error,
+                )
                 os.remove(file_path)
 
-
-    def create_context(self, config: ProjectConfig, config_path: Path) -> LanguageServerContext: 
+    def create_context(
+        self, config: ProjectConfig, config_path: Path
+    ) -> LanguageServerContext:
         """Attempt to configure the project's context and run necessary plugins"""
         project = Project(config, None, config_path)
 
         ctx = ProjectBuilderShadow(project, root=True).initialize(self)
         # logging.debug(f"Mecha created for {config_path} successfully")
         return ctx
-            
-    def create_instance(
-        self, config_path: Path
-    ) -> LanguageServerContext | None:
+
+    def create_instance(self, config_path: Path) -> LanguageServerContext | None:
         config = load_config(config_path)
         # logging.debug(config)
         # Ensure that we aren't loading in all project files
@@ -122,14 +132,18 @@ class MechaLanguageServer(LanguageServer):
         try:
             instance = self.create_context(config, config_path)
         except PluginImportError as plugin_error:
-            logging.error(f"Plugin Import Error: {plugin_error}\n{plugin_error.__cause__}")
+            logging.error(
+                f"Plugin Import Error: {plugin_error}\n{plugin_error.__cause__}"
+            )
         except PluginError as plugin_error:
             logging.error(plugin_error.__cause__)
             raise plugin_error.__cause__
         except DiagnosticErrorSummary as summary:
             logging.error("Errors found in the following:")
             for diag in summary.diagnostics.exceptions:
-                logging.error("\t" + str(diag.file.source_path if diag.file is not None else ""))
+                logging.error(
+                    "\t" + str(diag.file.source_path if diag.file is not None else "")
+                )
 
         except Exception as e:
             logging.error(f"Error occured while running beet: {type(e)} {e}")
@@ -149,14 +163,16 @@ class MechaLanguageServer(LanguageServer):
             ws_path = self.uri_to_path(w.uri)
 
             if config_path := locate_config(ws_path):
-                config_paths.append(config_path)            
+                config_paths.append(config_path)
 
         for config_path in config_paths:
             try:
                 if config := self.create_instance(config_path):
                     self.instances[config_path.parent] = config
             except Exception as exc:
-                logging.error(f"Failed to load config at {config_path} due to the following\n{exc}")
+                logging.error(
+                    f"Failed to load config at {config_path} due to the following\n{exc}"
+                )
 
     def uri_to_path(self, uri: str):
         parsed = urlparse(uri)
@@ -167,7 +183,7 @@ class MechaLanguageServer(LanguageServer):
         # # logging.debug(norm_path)
         norm_path = Path(norm_path)
         return norm_path
-    
+
     def get_instance(self, config_path: Path):
         if config_path not in self.instances or self.instances[config_path] is None:
             instance = self.create_instance(config_path)

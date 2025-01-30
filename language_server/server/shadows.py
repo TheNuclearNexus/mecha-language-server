@@ -21,7 +21,7 @@ from beet.core.utils import (
     change_directory,
     local_import_path,
     required_field,
-    extra_field
+    extra_field,
 )
 
 from beet.contrib.load import load
@@ -35,6 +35,7 @@ from pygls.server import LanguageServer
 from tokenstream import InvalidSyntax
 
 COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}
+
 
 @dataclass
 class CompiledDocument:
@@ -82,8 +83,9 @@ class LanguageServerContext(Context):
     ls: LanguageServer = required_field()
     project_config: ProjectConfig = required_field()
 
-    path_to_resource: dict[str, tuple[str, NamespaceFile]] = extra_field(default_factory=dict)
-
+    path_to_resource: dict[str, tuple[str, NamespaceFile]] = extra_field(
+        default_factory=dict
+    )
 
     def require(self, *args: PluginSpec):
         """Execute the specified plugin."""
@@ -94,13 +96,12 @@ class LanguageServerContext(Context):
                 message = f"Failed to load plugin: {arg}\n{exc}"
                 self.ls.show_message(message.split("\n")[0], lsp.MessageType.Error)
                 self.ls.show_message_log(message, lsp.MessageType.Error)
-                
+
     @contextmanager
     def activate(self):
         """Push the context directory to sys.path and handle cleanup to allow module reloading."""
         with local_import_path(str(self.directory.resolve())), self.cache:
             yield self.inject(PipelineShadow)
-
 
     def get_resource_from_path(self, path: str) -> tuple[str, NamespaceFile] | None:
         return self.path_to_resource.get(path)
@@ -108,10 +109,11 @@ class LanguageServerContext(Context):
 
 def get_excluded_plugins(ctx: Context):
     lsp_config: dict = ctx.meta.setdefault("lsp", {})
-    
+
     excluded_plugins = lsp_config.get("excluded_plugins") or []
 
     return excluded_plugins
+
 
 class ProjectBuilderShadow(ProjectBuilder):
     def bootstrap(self, ctx: Context):
@@ -146,7 +148,11 @@ class ProjectBuilderShadow(ProjectBuilder):
                 project_author=self.config.author,
                 project_version=self.config.version,
                 project_root=self.root,
-                minecraft_version=self.config.minecraft if len(self.config.minecraft) > 0 else LATEST_MINECRAFT_VERSION,
+                minecraft_version=(
+                    self.config.minecraft
+                    if len(self.config.minecraft) > 0
+                    else LATEST_MINECRAFT_VERSION
+                ),
                 directory=self.project.directory,
                 output_directory=self.project.output_directory,
                 meta=meta,
@@ -159,14 +165,15 @@ class ProjectBuilderShadow(ProjectBuilder):
                 whitelist=self.config.whitelist,
             )
 
-            
-
             pipelined_plugin: List[PluginSpec] = [self.bootstrap]
-
 
             excluded_plugins = get_excluded_plugins(ctx)
             for item in self.config.pipeline:
-                if item == "mecha" or not isinstance(item, str) or item in excluded_plugins:
+                if (
+                    item == "mecha"
+                    or not isinstance(item, str)
+                    or item in excluded_plugins
+                ):
                     continue
 
                 pipelined_plugin.append(item)
@@ -176,7 +183,7 @@ class ProjectBuilderShadow(ProjectBuilder):
                     ctx.require(plugin)
                 # pipeline = stack.enter_context(ctx.activate())
                 # pipeline.run(plugins)
-            
+
             # Load everything into context *after* the first half of the plugins
             # are ran by the pipeline
             load(
@@ -185,7 +192,7 @@ class ProjectBuilderShadow(ProjectBuilder):
             )(ctx)
 
             mc = ctx.inject(Mecha)
-        
+
             for pack in ctx.packs:
                 # Load all files into the compilation database
                 for provider in mc.providers:
@@ -203,4 +210,3 @@ class ProjectBuilderShadow(ProjectBuilder):
                         continue
 
             return ctx
-

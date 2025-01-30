@@ -20,17 +20,15 @@ def node_location_to_range(node: AstNode):
         ),
     )
 
+
 def node_start_to_range(node: AstNode):
     start = lsp.Position(
-        line=node.location.lineno - 1,
-        character=node.location.colno - 1
+        line=node.location.lineno - 1, character=node.location.colno - 1
     )
-    end = lsp.Position(
-        line=start.line,
-        character=start.character + 1
-    )
+    end = lsp.Position(line=start.line, character=start.character + 1)
 
     return lsp.Range(start=start, end=end)
+
 
 def fetch_compilation_data(ls: MechaLanguageServer, params: Any):
     text_doc = ls.workspace.get_document(params.text_document.uri)
@@ -67,16 +65,15 @@ def get_node_at_position(root: AstNode, pos: lsp.Position):
 
 def offset_location(location: SourceLocation, offset):
     return SourceLocation(
-        location.pos + offset,
-        location.lineno,
-        location.colno + offset
+        location.pos + offset, location.lineno, location.colno + offset
     )
+
 
 def search_scope_for_binding(
     var_name: str, node: AstIdentifier | AstTargetIdentifier, scope: LexicalScope
 ) -> tuple[Binding, LexicalScope] | None:
     variables = scope.variables
-   
+
     if var_name in variables:
         var_data = variables[var_name]
 
