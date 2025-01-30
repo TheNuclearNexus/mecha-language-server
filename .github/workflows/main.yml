@@ -44,3 +44,4 @@ jobs:
       run: cd ./extension && npx semantic-release
       env:
         VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
+        GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
