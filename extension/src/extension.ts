@@ -231,7 +231,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
     const sites = await getSitePackages(pythonCommand[0]);
     if (sites.length > 0) {
         args.push("--site");
-        args.push(...sites);
+        args.push(...sites.map(s => `'${s}'`));
     }
 
     logger.debug(`python: ${pythonCommand.join(" ")}`);
@@ -239,8 +239,8 @@ async function startLangServer(context: vscode.ExtensionContext) {
     const serverOptions: ServerOptions =
         process.env.DEV == "true"
             ? {
-                  command: "poetry",
-                  args: ["run", "python", "-m", serverPath, ...args],
+                  command: pythonCommand[0],
+                  args: ["-m", "poetry", "run", "python", "-m", serverPath, "--debug_ast", "true", ...args],
                   options: { cwd },
               }
             : {
@@ -252,6 +252,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
                   options: { cwd },
               };
 
+    logger.debug([serverOptions.command, ...serverOptions.args].join(" "))
     logger.debug(JSON.stringify(serverOptions));
 
     client = new LanguageClient("mecha-lsp", serverOptions, getClientOptions());

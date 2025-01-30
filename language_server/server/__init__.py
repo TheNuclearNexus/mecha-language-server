@@ -1,3 +1,4 @@
+import importlib
 import json
 import logging
 import sys
@@ -19,6 +20,7 @@ from mecha import Mecha, DiagnosticErrorSummary
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 from lsprotocol import types as lsp
+
 import os
 
 from pathlib import Path
@@ -62,7 +64,7 @@ class MechaLanguageServer(LanguageServer):
 
         file_path = cache_dir / "registries" / (minecraft_version + ".json")
 
-        logging.debug(minecraft_version)
+        # logging.debug(minecraft_version)
 
         if not file_path.exists():
             try:
@@ -91,15 +93,15 @@ class MechaLanguageServer(LanguageServer):
         """Attempt to configure the project's context and run necessary plugins"""
         project = Project(config, None, config_path)
 
-        ctx = ProjectBuilderShadow(project, root=True).initialize(self.show_message)
-        logging.debug(f"Mecha created for {config_path} successfully")
+        ctx = ProjectBuilderShadow(project, root=True).initialize(self)
+        # logging.debug(f"Mecha created for {config_path} successfully")
         return ctx
             
     def create_instance(
         self, config_path: Path
     ) -> LanguageServerContext | None:
         config = load_config(config_path)
-        logging.debug(config)
+        # logging.debug(config)
         # Ensure that we aren't loading in all project files
         config.output = None
 
@@ -110,6 +112,8 @@ class MechaLanguageServer(LanguageServer):
         og_modules = sys.modules
 
         sys.path = [*self._sites, str(config_path.parent), *og_sys_path]
+
+        # logging.debug(sys.path)
 
         os.chdir(config_path.parent)
 
@@ -160,7 +164,7 @@ class MechaLanguageServer(LanguageServer):
         norm_path = os.path.normpath(
             os.path.join(host, url2pathname(unquote(parsed.path)))
         )
-        # logging.debug(norm_path)
+        # # logging.debug(norm_path)
         norm_path = Path(norm_path)
         return norm_path
     
@@ -185,8 +189,8 @@ class MechaLanguageServer(LanguageServer):
                 parents.append(parent_path)
 
         parents = sorted(parents, key=lambda p: len(str(p).split(os.path.sep)))
-        logging.debug(parents)
-        # logging.debug(parents[-1])
+        # logging.debug(parents)
+        # # logging.debug(parents[-1])
         instance = self.get_instance(parents[-1])
 
         return instance

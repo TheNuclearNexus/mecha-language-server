@@ -2,7 +2,7 @@ from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 import os
-from typing import Any, Callable, Iterator, List
+from typing import Any, Callable, Iterator, List, cast
 from beet import (
     Context,
     GenericPlugin,
@@ -29,6 +29,7 @@ from beet.contrib.load import load
 from bolt import CompiledModule
 from mecha import AstNode, CompilationUnit, Mecha
 from lsprotocol import types as lsp
+from pygls.server import LanguageServer
 
 
 from tokenstream import InvalidSyntax
@@ -47,11 +48,21 @@ class CompiledDocument:
     compiled_unit: CompilationUnit | None
     compiled_module: CompiledModule | None
 
+    dependents: set[str] = extra_field(default_factory=set)
+
 
 class PipelineShadow(Pipeline):
     def require(self, *args: GenericPlugin[Context] | str):
         for spec in args:
-            plugin = self.resolve(spec)
+            try:
+                plugin = self.resolve(spec)
+            except Exception as exc:
+                ls = cast(LanguageServerContext, self.ctx).ls
+                message = f"An issue occured while loading plugin: {spec}\n{exc}"
+                ls.show_message(message.split("\n")[0], lsp.MessageType.Warning)
+                ls.show_message_log(message, lsp.MessageType.Warning)
+                continue
+
             if plugin in self.plugins:
                 continue
 
@@ -68,7 +79,7 @@ class PipelineShadow(Pipeline):
 # having to break plugins
 @dataclass(frozen=True)
 class LanguageServerContext(Context):
-    show_message: Callable[[Any, lsp.MessageType], None] = required_field()
+    ls: LanguageServer = required_field()
     project_config: ProjectConfig = required_field()
 
     path_to_resource: dict[str, tuple[str, NamespaceFile]] = extra_field(default_factory=dict)
@@ -80,7 +91,9 @@ class LanguageServerContext(Context):
             try:
                 self.inject(PipelineShadow).require(arg)
             except PluginError as exc:
-                self.show_message(f"Failed to load plugin: {arg}\n{exc}", lsp.MessageType.Error)
+                message = f"Failed to load plugin: {arg}\n{exc}"
+                self.ls.show_message(message.split("\n")[0], lsp.MessageType.Error)
+                self.ls.show_message_log(message, lsp.MessageType.Error)
                 
     @contextmanager
     def activate(self):
@@ -115,7 +128,7 @@ class ProjectBuilderShadow(ProjectBuilder):
 
     # This stripped down version of build only handles loading the plugins from config
     # all other operations are gone such as linking
-    def initialize(self, show_message: Callable[[Any, lsp.MessageType], None]) -> LanguageServerContext:
+    def initialize(self, ls: LanguageServer) -> LanguageServerContext:
         """Create the context, run the pipeline, and return the context."""
         with ExitStack() as stack:
             name = self.config.name or self.project.directory.stem
@@ -125,7 +138,7 @@ class ProjectBuilderShadow(ProjectBuilder):
             cache = self.project.cache
 
             ctx = LanguageServerContext(
-                show_message=show_message,
+                ls=ls,
                 project_config=self.config,
                 project_id=self.config.id or normalize_string(name),
                 project_name=name,

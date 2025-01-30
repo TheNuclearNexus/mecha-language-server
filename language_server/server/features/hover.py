@@ -1,3 +1,4 @@
+import json
 from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from mecha.contrib.nested_location import (
@@ -16,6 +17,7 @@ from .helpers import (
 
 from .. import MechaLanguageServer
 
+DEBUG_AST = False
 
 def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
     compiled_doc = fetch_compilation_data(ls, params)
@@ -53,3 +55,12 @@ def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
                 ), 
                 range
             )
+        case _:
+            if DEBUG_AST:
+                return lsp.Hover(
+                    lsp.MarkupContent(
+                        lsp.MarkupKind.Markdown,
+                        f"Repr: `{node.__repr__()}`\n\nDict: ```{node.__dict__.__repr__()}```"
+                    ),
+                    range
+                )

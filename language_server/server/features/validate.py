@@ -13,7 +13,7 @@ from mecha.ast import AstError
 from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
 
-from language_server.server.indexing import MetaDataAttacher, index_function_ast
+from language_server.server.indexing import Bindings, index_function_ast
 from language_server.server.shadows import (
     LanguageServerContext,
     CompiledDocument,
@@ -42,7 +42,7 @@ def validate(
             for d in diagnostics
         ]
 
-    logging.debug(f"Sending diagnostics: {diagnostics}")
+    # logging.debug(f"Sending diagnostics: {diagnostics}")
 
     ls.publish_diagnostics(
         params.text_document.uri,
@@ -58,7 +58,7 @@ def tokenstream_error_to_lsp_diag(
         range = [exec.token.location, exec.token.end_location]
 
     trace = "\n".join(traceback.format_tb(exec.__traceback__))
-    logging.debug(trace)
+    # logging.debug(trace)
 
     return lsp.Diagnostic(
         range=lsp.Range(
@@ -73,32 +73,31 @@ def tokenstream_error_to_lsp_diag(
 def get_compilation_data(
     ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument
 ):
-    if text_doc.uri in COMPILATION_RESULTS:
-        return COMPILATION_RESULTS[text_doc.uri]
+    location = ctx.path_to_resource[text_doc.path][0]
+    if location in COMPILATION_RESULTS:
+        return COMPILATION_RESULTS[location]
 
     validate_function(ls, ctx, text_doc)
-    return COMPILATION_RESULTS[text_doc.uri]
+    # logging.debug(COMPILATION_RESULTS)
+    return COMPILATION_RESULTS[location]
 
 
 def validate_function(
     ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument
 ) -> list[InvalidSyntax]:
-    logging.debug(f"Parsing function:\n{text_doc.source}")
+    # logging.debug(f"Parsing function:\n{text_doc.source}")
 
     path = os.path.normcase(os.path.normpath(text_doc.path))
 
     if path not in ctx.path_to_resource:
         if not try_to_mount_file(ctx, path):
-            COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
-                ctx, "", None, [], None, None
-            )
             return []
             
 
     location, file = ctx.path_to_resource[path]
 
     if not isinstance(file, Function) and not isinstance(file, Module):
-        COMPILATION_RESULTS[text_doc.uri] = CompiledDocument(
+        COMPILATION_RESULTS[location] = CompiledDocument(
             ctx, location, None, [], None, None
         )
         return []
@@ -111,8 +110,8 @@ def validate_function(
         ctx, location, type(file)(text_doc.source, text_doc.path)
     )
 
-    COMPILATION_RESULTS[text_doc.uri] = compiled_doc
-
+    COMPILATION_RESULTS[location] = compiled_doc
+    # logging.debug(COMPILATION_RESULTS)
     return compiled_doc.diagnostics
 
 
@@ -172,22 +171,29 @@ def parse_function(
 ) -> CompiledDocument:
     mecha = ctx.inject(Mecha)
 
+    # Create the token stream
     stream = TokenStream(
         source=function.text,
         preprocessor=mecha.preprocessor,
     )
 
+    # Configure the database to compile the file
     mecha.database.current = function
     compiled_unit = CompilationUnit(resource_location=location, pack=ctx.data)
     mecha.database[function] = compiled_unit
 
     diagnostics = []
 
+    # Parse the stream
     ast = AstRoot(commands=AstChildren())
     try:
         ast: AstNode = mecha.parse_stream(
             mecha.spec.multiline, None, AstRoot.parser, stream  # type: ignore
         )
+
+        for node in ast.walk():
+            if isinstance(node, AstError):
+                diagnostics.append(node.error)
     except InvalidSyntax as exec:
         logging.error(f"Failed to parse: {exec}")
         diagnostics.append(exec)
@@ -197,19 +203,39 @@ def parse_function(
     except Exception as exec:
         logging.error(f"{type(exec)}: {exec}")
 
-    ast = index_function_ast(ast, location)
-    for node in ast.walk():
-        if isinstance(node, AstError):
-            diagnostics.append(node.error)
+    dependents = set()
+    
+    compiled_module = None
+    if location in COMPILATION_RESULTS:
+        prev_compilation = COMPILATION_RESULTS[location]
+        dependents = prev_compilation.dependents
+        compiled_module = prev_compilation.compiled_module
 
     if len(diagnostics) == 0 and Module in ctx.data.extend_namespace:
         runtime = ctx.inject(Runtime)
-        compiled_module = runtime.modules.get(function)
 
-        if compiled_module is not None:
-            compiled_module.ast = index_function_ast(compiled_module.ast, location)
-    else:
-        compiled_module = None
+        if fresh_module := runtime.modules.get(function):
+            fresh_module.ast = index_function_ast(fresh_module.ast, location, fresh_module)
+
+            for dependency in fresh_module.dependencies:
+                if dependency in COMPILATION_RESULTS:
+                    COMPILATION_RESULTS[dependency].dependents.add(location)
+
+            compiled_module = fresh_module
+
+    ast = index_function_ast(ast, location, module=compiled_module)
+    logging.debug(compiled_module)
+
+    for dependent in dependents:
+        if not dependent in COMPILATION_RESULTS:
+            continue
+
+        parse_function(ctx, dependency, ctx.data.functions[dependent] or ctx.data[Module][dependent])
+        del COMPILATION_RESULTS[dependency]
+                
+
+
+    
 
     return CompiledDocument(
         resource_location=location,
@@ -218,4 +244,5 @@ def parse_function(
         compiled_unit=compiled_unit,
         compiled_module=compiled_module,
         ctx=ctx,
+        dependents=dependents
     )

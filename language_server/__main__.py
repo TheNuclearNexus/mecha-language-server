@@ -2,6 +2,8 @@ import argparse
 import logging
 from lsprotocol import types as lsp
 
+import language_server.server.features.hover
+
 from .server.features.rename import rename_variable
 
 from .server.features.references import get_references
@@ -14,6 +16,7 @@ from language_server.server.features.semantics import TOKEN_MODIFIER_LIST, TOKEN
 from .server import MechaLanguageServer
 from .server.features import validate, completion
 from . import mecha_server
+import language_server
 
 
 @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
@@ -86,12 +89,15 @@ def add_arguments(parser: argparse.ArgumentParser):
     parser.add_argument("--host", default="127.0.0.1", help="Bind to this address")
     parser.add_argument("--port", type=int, default=2087, help="Bind to this port")
     parser.add_argument("--site", type=str, default=[], nargs="*", help="Sites to look for python packages")
+    parser.add_argument("--debug_ast", type=bool, default=False, help="Show the AST node for the hovered token")
 
 def main():
     print("Starting Mecha LS")
     parser = argparse.ArgumentParser()
     add_arguments(parser)
     args = parser.parse_args()
+    
+    language_server.server.features.hover.DEBUG_AST = args.debug_ast
 
     mecha_server.set_sites(args.site)
 
