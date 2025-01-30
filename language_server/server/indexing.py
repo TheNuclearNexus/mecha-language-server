@@ -3,7 +3,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 import inspect
 import logging
 import types
-from typing import Any, Generic, Optional, TypeVar, Union, cast, get_origin
+from typing import Any, Generic, Optional, TypeVar, Union, Unpack, cast, get_origin
 import typing
 
 from beet.core.utils import extra_field
@@ -44,14 +44,17 @@ from .utils.reflection import UNKNOWN_TYPE, FunctionInfo, get_type_info
 
 def node_to_types(node: AstNode):
 
-    nodes = []
+    types = []
     for n in node.walk():
         if isinstance(n, AstExpressionBinary) and n.operator == "|":
             continue
 
-        nodes.append(n)
+        annotation = expression_to_annotation(n)
 
-    return Union[*nodes]
+        if annotation is not UNKNOWN_TYPE:
+            types.append(annotation)
+
+    return Union[Unpack[types]]
 
 
 @dataclass(frozen=True, slots=True)
