@@ -1,6 +1,11 @@
+import builtins
+from functools import reduce
+import inspect
 import logging
+import types
+from typing import Any
 
-from bolt import AstAttribute, AstIdentifier, UndefinedIdentifier, Variable
+from bolt import AstAttribute, AstIdentifier, Runtime, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
     AstItemSlot,
@@ -20,6 +25,7 @@ from ...server import GAME_REGISTRIES, MechaLanguageServer
 from ..indexing import get_type_annotation
 from ..utils.reflection import (
     UNKNOWN_TYPE,
+    FunctionInfo,
     format_function_hints,
     get_name_of_type,
     get_type_info,
@@ -107,7 +113,7 @@ def get_completions(
 
     items = []
     if len(diagnostics) > 0:
-        items = get_diag_completions(pos, mecha, diagnostics)
+        items = get_diag_completions(pos, mecha, ctx.inject(Runtime), diagnostics)
     elif ast is not None:
         current_node = get_node_at_position(ast, pos)
 
@@ -149,6 +155,30 @@ def add_registry_items(
         )
 
 
+def get_variable_description(name: str, value: Any):
+    doc_string = "\n---\n" + value.__doc__ if value.__doc__ is not None else ""
+    return f"```python\n(variable) {name}: {get_name_of_type(type(value))}\n```{doc_string}"
+
+
+def get_class_description(name: str, value: type):
+    doc_string = "\n---\n" + value.__doc__ if value.__doc__ is not None else ""
+    
+    return f"```python\nclass {name}()\n```{doc_string}"
+
+
+def get_function_description(name: str, function: Any):
+    function_info = None
+    if isinstance(function, FunctionInfo):
+        function_info = function
+    else:
+        function_info = FunctionInfo.extract(function)
+
+    doc_string = "\n---\n" + function_info.doc if function_info.doc is not None else ""
+
+
+    return f"```py\n{format_function_hints(name, function_info)}\n```{doc_string}"
+
+
 def get_bolt_completions(
     node: AstNode,
     items: list[lsp.CompletionItem],
@@ -166,22 +196,7 @@ def get_bolt_completions(
     logging.debug(type_info)
 
     for name, type in type_info.fields.items():
-        kind = (
-            lsp.CompletionItemKind.Property
-            if not name.isupper()
-            else lsp.CompletionItemKind.Constant
-        )
-
-        items.append(
-            lsp.CompletionItem(
-                name,
-                kind=kind,
-                documentation=lsp.MarkupContent(
-                    kind=lsp.MarkupKind.Markdown,
-                    value=f"```py\n{name}: {get_name_of_type(type)}\n```\n{type.__doc__ or ''}",
-                ),
-            )
-        )
+        add_variable_completion(items, name, type)
 
     for name, function_info in type_info.functions.items():
         items.append(
@@ -190,14 +205,14 @@ def get_bolt_completions(
                 kind=lsp.CompletionItemKind.Function,
                 documentation=lsp.MarkupContent(
                     kind=lsp.MarkupKind.Markdown,
-                    value=f"```py\n(function) {format_function_hints(name, function_info)}\n```\n{function_info.doc or ''}",
+                    value=get_function_description(name, function_info),
                 ),
             )
         )
 
 
 def get_diag_completions(
-    pos: lsp.Position, mecha: Mecha, diagnostics: list[InvalidSyntax]
+    pos: lsp.Position, mecha: Mecha, runtime: Runtime, diagnostics: list[InvalidSyntax]
 ):
     items = []
     for diagnostic in diagnostics:
@@ -219,35 +234,62 @@ def get_diag_completions(
 
         if isinstance(diagnostic, UndefinedIdentifier):
             for name, variable in diagnostic.lexical_scope.variables.items():
-                add_variable(items, name, variable)
+                add_variable_definition(items, name, variable)
+
+            for name, value in runtime.globals.items():
+                add_raw_definition(items, name, value)
+
+            for name in runtime.builtins:
+                add_raw_definition(items, name, getattr(builtins, name))
 
             break
     return items
 
 
-def add_variable(items: list[lsp.CompletionItem], name: str, variable: Variable):
-
+def add_variable_definition(
+    items: list[lsp.CompletionItem], name: str, variable: Variable
+):
     possible_types = set()
-    documentation = None
 
     for binding in variable.bindings:
         origin = binding.origin
-        if type_annotations := origin.__dict__.get("type_annotations"):
-            for t in type_annotations:
-                match t:
-                    case AstIdentifier() as identifer:
-                        possible_types.add(identifer.value)
-                    case type() as _type:
-                        possible_types.add(_type.__name__)
-                    case _:
-                        possible_types.add(str(type_annotations))
+        if annotation := get_type_annotation(origin):
+            possible_types.add(annotation)
 
     if len(possible_types) > 0:
-        description = f"```python\n{name}: {' | '.join(possible_types)}\n```"
-        documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
+        _type = reduce(lambda a, b: a | b, possible_types)
+        add_variable_completion(items, name, _type)
 
-    items.append(
-        lsp.CompletionItem(
-            name, documentation=documentation, kind=lsp.CompletionItemKind.Variable
-        )
+
+def add_raw_definition(items: list[lsp.CompletionItem], name: str, value: Any):
+    if inspect.isclass(value):
+        add_class_completion(items, name, value)
+    elif inspect.isfunction(value) or inspect.isbuiltin(value):
+        add_function_completion(items, name, value)
+    else:
+        add_variable_completion(items, name, type(value))
+
+
+def add_class_completion(items: list[lsp.CompletionItem], name: str, _type):
+    description = get_class_description(name, _type)
+    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
+
+    items.append(lsp.CompletionItem(name, documentation=documentation, kind=lsp.CompletionItemKind.Class))
+
+def add_function_completion(items: list[lsp.CompletionItem], name: str, function):
+    description = get_function_description(name, function)
+    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
+
+    items.append(lsp.CompletionItem(name, documentation=documentation, kind=lsp.CompletionItemKind.Function))
+
+def add_variable_completion(items: list[lsp.CompletionItem], name: str, _type):
+    kind = (
+        lsp.CompletionItemKind.Property
+        if not name.isupper()
+        else lsp.CompletionItemKind.Constant
     )
+
+    description = get_variable_description(name, _type)
+    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
+
+    items.append(lsp.CompletionItem(name, documentation=documentation, kind=kind))

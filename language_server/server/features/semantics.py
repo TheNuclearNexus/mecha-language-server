@@ -2,7 +2,7 @@ import inspect
 import logging
 from dataclasses import dataclass, field
 from types import NoneType
-from typing import Any, Literal, Union, get_args
+from typing import Any, Literal, Union, get_args, get_origin
 
 from beet import Context
 from beet.core.utils import required_field
@@ -258,8 +258,10 @@ class SemanticTokenCollector(Reducer):
     def generic_identifier(self, identifier: Any):
         annotation = get_type_annotation(identifier)
 
-        if annotation is not None and inspect.isfunction(annotation):
+        if annotation is not None and (inspect.isfunction(annotation) or inspect.isbuiltin(annotation)):
             self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
+        elif annotation is not None and get_origin(annotation) is type:
+            self.nodes.append((identifier, TOKEN_TYPES["class"], 0))
         else:
             kind = TOKEN_TYPES["variable"]
             modifiers = 0

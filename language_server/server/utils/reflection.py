@@ -150,19 +150,22 @@ def get_name_of_type(annotation):
         return annotation.__name__ if hasattr(annotation, "__name__") else annotation
 
 
-def format_function_hints(name: str, signature: FunctionInfo):
-    hint = f"def {name}("
+def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "def"):
+    hint = f"{keyword} {name}("
 
     return_type = signature.return_annotation
 
     parameters = []
 
     for name, parameter in signature.parameters:
-        annotation = get_name_of_type(parameter.annotation or parameter.default)
+        annotation = get_name_of_type(parameter.annotation)
+
+        if annotation is None and parameter.default is not inspect.Parameter.empty:
+            annotation = get_name_of_type(type(parameter.default))
 
         annotation_string = ": " + str(annotation) if annotation else ""
         default_string = (
-            " = " + str(parameter.default)
+            " = " + parameter.default.__repr__()
             if parameter.default is not inspect.Parameter.empty
             else ""
         )

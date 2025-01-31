@@ -2,3 +2,7 @@ TEST = @s
 
 TEST.positioned((1,1,1)).tag("foo").tag("bar", False)
 
+print()
+Exception
+ctx
+Selector

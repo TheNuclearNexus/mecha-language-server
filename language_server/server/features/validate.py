@@ -205,17 +205,17 @@ def parse_function(
     dependents = set()
 
     compiled_module = None
+    runtime = ctx.inject(Runtime)
     if location in COMPILATION_RESULTS:
         prev_compilation = COMPILATION_RESULTS[location]
         dependents = prev_compilation.dependents
         compiled_module = prev_compilation.compiled_module
 
     if len(diagnostics) == 0 and Module in ctx.data.extend_namespace:
-        runtime = ctx.inject(Runtime)
 
         if fresh_module := runtime.modules.get(function):
             fresh_module.ast = index_function_ast(
-                fresh_module.ast, location, fresh_module
+                fresh_module.ast, location, runtime, fresh_module
             )
 
             for dependency in fresh_module.dependencies:
@@ -224,7 +224,7 @@ def parse_function(
 
             compiled_module = fresh_module
 
-    ast = index_function_ast(ast, location, module=compiled_module)
+    ast = index_function_ast(ast, location, runtime=runtime, module=compiled_module)
     logging.debug(compiled_module)
 
     for dependent in dependents:

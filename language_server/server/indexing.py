@@ -1,10 +1,11 @@
+import builtins
 import inspect
 import logging
 from dataclasses import dataclass, field
 from functools import reduce
 from typing import Any, Optional, TypeVar
 
-from beet.core.utils import extra_field
+from beet.core.utils import extra_field, required_field
 from bolt import (
     AstAssignment,
     AstAttribute,
@@ -18,6 +19,7 @@ from bolt import (
     AstTuple,
     AstValue,
     CompiledModule,
+    Runtime,
 )
 from mecha import (
     AstBlock,
@@ -85,16 +87,43 @@ def was_referenced(references: list[AstNode], identifier: AstNode):
             return True
 
 
-def get_referenced_type(module: CompiledModule, identifier: AstIdentifier):
+def is_builtin(identifier: AstIdentifier):
+    if identifier.value.startswith("_"):
+        return None
+
+    return (
+        getattr(builtins, identifier.value)
+        if hasattr(builtins, identifier.value)
+        else None
+    )
+
+
+def annotate_types(annotation):
+    if isinstance(annotation, type):
+        return type[annotation]
+    elif inspect.isfunction(annotation) or inspect.isbuiltin(annotation):
+        return annotation
+    else:
+        return type(annotation)
+
+
+def get_referenced_type(
+    runtime: Runtime, module: CompiledModule, identifier: AstIdentifier
+):
     var_name = identifier.value
     defined_variables = module.lexical_scope.variables
 
     if variable := defined_variables.get(var_name):
         for binding in variable.bindings:
             if was_referenced(binding.references, identifier) and (
-                type_annotation := get_type_annotation(binding.origin)
+                annotation := get_type_annotation(binding.origin)
             ):
-                return type_annotation
+                return annotation
+    elif identifier.value in module.globals:
+        return annotate_types(runtime.globals[identifier.value])
+
+    elif annotation := is_builtin(identifier):
+        return annotate_types(annotation)
 
     return UNKNOWN_TYPE
 
@@ -103,12 +132,15 @@ T = TypeVar("T", bound=AstNode)
 
 
 def index_function_ast(
-    ast: T, function_location: str, module: CompiledModule | None = None
+    ast: T,
+    function_location: str,
+    runtime: Runtime | None = None,
+    module: CompiledModule | None = None,
 ) -> T:
     resolve_paths(ast, path="/".join(function_location.split(":")[1:]))
     try:
         initial_values = InitialValues()
-        bindings = Bindings(module=module)
+        bindings = Bindings(module=module, runtime=runtime)
 
         return bindings(initial_values(ast))
     except Exception as e:
@@ -173,16 +205,24 @@ class InitialValues(Reducer):
 
 @dataclass
 class Bindings(Reducer):
-    module: Optional[CompiledModule] = extra_field(default=None)
+    module: Optional[CompiledModule] = required_field()
+    runtime: Optional[Runtime] = required_field()
 
     @rule(AstIdentifier)
     def identifier(self, identifier):
         logging.debug(identifier)
         logging.debug(self.module)
-        if get_type_annotation(identifier) or self.module is None:
+        logging.debug(self.runtime)
+        if (
+            get_type_annotation(identifier)
+            or self.module is None
+            or self.runtime is None
+        ):
             return identifier
 
-        set_type_annotation(identifier, get_referenced_type(self.module, identifier))
+        set_type_annotation(
+            identifier, get_referenced_type(self.runtime, self.module, identifier)
+        )
 
         return identifier
 
