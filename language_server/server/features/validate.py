@@ -1,27 +1,27 @@
-from dataclasses import dataclass
 import logging
 import os
-from pathlib import Path, PurePath
 import traceback
+from dataclasses import dataclass
+from pathlib import Path, PurePath
 from typing import Any
-from beet import Context, DataPack, Function, PackLoadUrl, PackageablePath, TextFileBase
+
+from beet import Context, DataPack, Function, PackageablePath, PackLoadUrl, TextFileBase
 from beet.contrib.load import load
 from bolt import CompiledModule, Module, Runtime
 from lsprotocol import types as lsp
 from mecha import AstChildren, AstNode, AstRoot, CompilationUnit, Mecha
 from mecha.ast import AstError
-from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 from pygls.workspace import TextDocument
+from tokenstream import InvalidSyntax, TokenStream, UnexpectedToken
 
 from language_server.server.indexing import Bindings, index_function_ast
 from language_server.server.shadows import (
-    LanguageServerContext,
-    CompiledDocument,
     COMPILATION_RESULTS,
+    CompiledDocument,
+    LanguageServerContext,
 )
 
 from .. import MechaLanguageServer
-
 
 SUPPORTED_EXTENSIONS = [Function.extension, Module.extension]
 

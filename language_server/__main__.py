@@ -1,26 +1,23 @@
 import argparse
 import logging
+
 from lsprotocol import types as lsp
 
+import language_server
 import language_server.server.features.hover
-
-from .server.features.rename import rename_variable
-
-from .server.features.references import get_references
-
-from .server.features.hover import get_hover
-
-from .server.features.definition import get_definition
 from language_server.server.features.semantics import (
     TOKEN_MODIFIERS,
     TOKEN_TYPES,
     semantic_tokens,
 )
 
-from .server import MechaLanguageServer
-from .server.features import validate, completion
 from . import mecha_server
-import language_server
+from .server import MechaLanguageServer
+from .server.features import completion, validate
+from .server.features.definition import get_definition
+from .server.features.hover import get_hover
+from .server.features.references import get_references
+from .server.features.rename import rename_variable
 
 
 @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)

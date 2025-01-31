@@ -1,9 +1,9 @@
-from dataclasses import dataclass, field, fields, is_dataclass
 import inspect
 import logging
 import types
-from typing import Any, get_origin
 import typing
+from dataclasses import dataclass, field, fields, is_dataclass
+from typing import Any, get_origin
 
 UNKNOWN_TYPE = object()
 TYPE_TO_INFO: dict[type, "TypeInfo"] = {}

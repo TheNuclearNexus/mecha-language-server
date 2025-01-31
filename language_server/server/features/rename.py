@@ -2,6 +2,7 @@ from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstNode
 
+from .. import MechaLanguageServer
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
@@ -9,8 +10,6 @@ from .helpers import (
     offset_location,
     search_scope_for_binding,
 )
-
-from .. import MechaLanguageServer
 
 
 def rename_variable(ls: MechaLanguageServer, params: lsp.RenameParams):

@@ -1,34 +1,30 @@
 import importlib
 import json
 import logging
+import os
 import sys
+from pathlib import Path
 from urllib import request
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
+
 from beet import (
     Context,
     NamespaceFile,
+    PluginError,
     PluginImportError,
     Project,
     ProjectConfig,
     load_config,
-    PluginError,
     locate_config,
 )
 from beet.library.base import LATEST_MINECRAFT_VERSION
-
-
-from mecha import Mecha, DiagnosticErrorSummary
+from lsprotocol import types as lsp
+from mecha import DiagnosticErrorSummary, Mecha
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
-from lsprotocol import types as lsp
-
-import os
-
-from pathlib import Path
-from urllib.parse import unquote, urlparse
-from urllib.request import url2pathname
 
 from .shadows import LanguageServerContext, ProjectBuilderShadow
-
 
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 

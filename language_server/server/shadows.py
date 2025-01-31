@@ -1,37 +1,34 @@
+import os
 from contextlib import ExitStack, contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-import os
 from typing import Any, Callable, Iterator, List, cast
+
 from beet import (
     Context,
     GenericPlugin,
     NamespaceFile,
+    Pipeline,
+    PluginError,
     PluginSpec,
     ProjectBuilder,
     ProjectConfig,
     Task,
-    PluginError,
-    Pipeline,
+)
+from beet.contrib.load import load
+from beet.core.utils import (
+    change_directory,
+    extra_field,
+    local_import_path,
+    normalize_string,
+    required_field,
 )
 from beet.library.base import LATEST_MINECRAFT_VERSION
 from beet.toolchain.template import TemplateManager
-from beet.core.utils import (
-    normalize_string,
-    change_directory,
-    local_import_path,
-    required_field,
-    extra_field,
-)
-
-from beet.contrib.load import load
-
 from bolt import CompiledModule
-from mecha import AstNode, CompilationUnit, Mecha
 from lsprotocol import types as lsp
+from mecha import AstNode, CompilationUnit, Mecha
 from pygls.server import LanguageServer
-
-
 from tokenstream import InvalidSyntax
 
 COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}

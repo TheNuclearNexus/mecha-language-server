@@ -1,4 +1,6 @@
 import logging
+
+from bolt import AstAttribute, AstIdentifier, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
     AstItemSlot,
@@ -8,21 +10,20 @@ from mecha import (
     BasicLiteralParser,
     Mecha,
 )
-from bolt import AstAttribute, AstIdentifier, UndefinedIdentifier, Variable
-from tokenstream import InvalidSyntax, UnexpectedEOF, UnexpectedToken
 from pygls.workspace import TextDocument
+from tokenstream import InvalidSyntax, UnexpectedEOF, UnexpectedToken
 
 from language_server.server.features.helpers import get_node_at_position
-from ..indexing import get_type_annotation
 from language_server.server.shadows import CompiledDocument, LanguageServerContext
+
+from ...server import GAME_REGISTRIES, MechaLanguageServer
+from ..indexing import get_type_annotation
 from ..utils.reflection import (
     UNKNOWN_TYPE,
     format_function_hints,
     get_name_of_type,
     get_type_info,
 )
-
-from ...server import GAME_REGISTRIES, MechaLanguageServer
 from .validate import get_compilation_data
 
 TOKEN_HINTS: dict[str, list[str]] = {

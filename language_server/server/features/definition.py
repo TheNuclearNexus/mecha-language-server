@@ -1,9 +1,9 @@
 import logging
+
 from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
 from lsprotocol import types as lsp
 
-from .validate import get_compilation_data
-
+from .. import MechaLanguageServer
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
@@ -11,8 +11,7 @@ from .helpers import (
     node_start_to_range,
     search_scope_for_binding,
 )
-
-from .. import MechaLanguageServer
+from .validate import get_compilation_data
 
 
 def get_definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):

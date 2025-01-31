@@ -1,49 +1,48 @@
-from dataclasses import dataclass, field
 import inspect
 import logging
+from dataclasses import dataclass, field
 from types import NoneType
 from typing import Any, Literal, Union, get_args
+
 from beet import Context
 from beet.core.utils import required_field
+from bolt import (
+    AstAssignment,
+    AstAttribute,
+    AstCall,
+    AstClassBases,
+    AstClassName,
+    AstExpression,
+    AstExpressionUnary,
+    AstFromImport,
+    AstFunctionSignature,
+    AstFunctionSignatureArgument,
+    AstIdentifier,
+    AstImportedItem,
+    AstPrelude,
+    AstTarget,
+    AstTargetIdentifier,
+    AstValue,
+)
 from lsprotocol import types as lsp
 from mecha import (
     AstCommand,
     AstItemSlot,
     AstNode,
     AstResourceLocation,
+    Mecha,
     Reducer,
     Visitor,
     rule,
-    Mecha,
 )
 from mecha.contrib.nested_location import AstNestedLocation
-from bolt import (
-    AstAttribute,
-    AstClassBases,
-    AstClassName,
-    AstExpression,
-    AstExpressionUnary,
-    AstFunctionSignatureArgument,
-    AstIdentifier,
-    AstPrelude,
-    AstTarget,
-    AstTargetIdentifier,
-    AstValue,
-)
-from bolt import (
-    AstAssignment,
-    AstCall,
-    AstFromImport,
-    AstFunctionSignature,
-    AstImportedItem,
-)
 from tokenstream import SourceLocation
 
 from language_server.server import MechaLanguageServer
-from ..indexing import get_type_annotation, set_type_annotation
-from .helpers import offset_location
 from language_server.server.features.validate import get_compilation_data
 
+from ..indexing import get_type_annotation, set_type_annotation
+from .helpers import offset_location
 
 _TokenModifier = Union[
     Literal["declaration"],

@@ -1,4 +1,5 @@
 import json
+
 from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from mecha.contrib.nested_location import (
@@ -8,14 +9,12 @@ from mecha.contrib.nested_location import (
 )
 from mecha.contrib.relative_location import resolve_relative_location
 
+from .. import MechaLanguageServer
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
     node_location_to_range,
 )
-
-
-from .. import MechaLanguageServer
 
 DEBUG_AST = False
 

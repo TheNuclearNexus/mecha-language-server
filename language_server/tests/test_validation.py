@@ -1,13 +1,12 @@
-from lsprotocol import types as lsp
-from beet import Function, ProjectConfig, run_beet
-from mecha import Mecha
 import pytest
-
+from beet import Function, ProjectConfig, run_beet
+from lsprotocol import types as lsp
+from mecha import Mecha
 
 from .. import mecha_server
 from ..server import MechaLanguageServer
-from ..server.features.validate import parse_function, validate, validate_function
 from ..server.features.completion import get_completions
+from ..server.features.validate import parse_function, validate, validate_function
 
 
 @pytest.fixture

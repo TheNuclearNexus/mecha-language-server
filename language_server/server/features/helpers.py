@@ -1,13 +1,13 @@
 import logging
 from typing import Any
-from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
-from tokenstream import SourceLocation
-from mecha import AstNode
-from lsprotocol import types as lsp
 
-from .validate import get_compilation_data
+from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
+from lsprotocol import types as lsp
+from mecha import AstNode
+from tokenstream import SourceLocation
 
 from .. import MechaLanguageServer
+from .validate import get_compilation_data
 
 
 def node_location_to_range(node: AstNode):

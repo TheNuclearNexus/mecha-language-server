@@ -1,11 +1,8 @@
-from ast import Module
-from dataclasses import dataclass, field, fields, is_dataclass
-from functools import reduce
 import inspect
 import logging
-import types
-from typing import Any, Generic, Optional, TypeVar, Union, cast, get_origin
-import typing
+from dataclasses import dataclass, field
+from functools import reduce
+from typing import Any, Optional, TypeVar
 
 from beet.core.utils import extra_field
 from bolt import (
@@ -25,22 +22,17 @@ from bolt import (
 from mecha import (
     AstBlock,
     AstCommand,
-    AstItemSlot,
+    AstItemStack,
     AstNode,
     AstParticle,
-    AstRoot,
-    AstSelector,
+    AstResourceLocation,
     AstSelectorArgument,
     Reducer,
-    AstResourceLocation,
     rule,
-    AstItemStack,
 )
 from mecha.contrib.nested_location import AstNestedLocation
 
-from .shadows import CompiledDocument
-
-from .utils.reflection import UNKNOWN_TYPE, FunctionInfo, get_type_info
+from .utils.reflection import UNKNOWN_TYPE, FunctionInfo
 
 
 def node_to_types(node: AstNode):
