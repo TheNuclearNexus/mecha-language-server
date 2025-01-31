@@ -215,7 +215,7 @@ def parse_function(
 
         if fresh_module := runtime.modules.get(function):
             fresh_module.ast = index_function_ast(
-                fresh_module.ast, location, runtime, fresh_module
+                fresh_module.ast, location, mecha, runtime, fresh_module
             )
 
             for dependency in fresh_module.dependencies:
@@ -224,8 +224,9 @@ def parse_function(
 
             compiled_module = fresh_module
 
-    ast = index_function_ast(ast, location, runtime=runtime, module=compiled_module)
-    logging.debug(compiled_module)
+    ast = index_function_ast(
+        ast, location, mecha, runtime=runtime, module=compiled_module
+    )
 
     for dependent in dependents:
         if not dependent in COMPILATION_RESULTS:

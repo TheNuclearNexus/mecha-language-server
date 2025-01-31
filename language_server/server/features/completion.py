@@ -8,6 +8,7 @@ from typing import Any
 from bolt import AstAttribute, AstIdentifier, Runtime, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
+    AstCommand,
     AstItemSlot,
     AstNode,
     AstOption,
@@ -133,8 +134,11 @@ def get_completions(
                     for k in TOKEN_HINTS["item_slot"]
                 ]
             )
-
-        get_bolt_completions(current_node, items)
+        
+        
+        # logging.debug(f"\n\n{current_node}\n\n")
+        if isinstance(current_node, AstIdentifier) or isinstance(current_node, AstAttribute):
+            get_bolt_completions(current_node, items)
 
     return items
 
@@ -154,14 +158,16 @@ def add_registry_items(
             ]
         )
 
+def get_doc_string(doc: Any):
+    return "\n---\n" + doc if isinstance(doc, str) else ""
 
 def get_variable_description(name: str, value: Any):
-    doc_string = "\n---\n" + value.__doc__ if value.__doc__ is not None else ""
+    doc_string = get_doc_string(value.__doc__)
     return f"```python\n(variable) {name}: {get_name_of_type(type(value))}\n```{doc_string}"
 
 
 def get_class_description(name: str, value: type):
-    doc_string = "\n---\n" + value.__doc__ if value.__doc__ is not None else ""
+    doc_string = get_doc_string(value)
     
     return f"```python\nclass {name}()\n```{doc_string}"
 
@@ -173,7 +179,7 @@ def get_function_description(name: str, function: Any):
     else:
         function_info = FunctionInfo.extract(function)
 
-    doc_string = "\n---\n" + function_info.doc if function_info.doc is not None else ""
+    doc_string = get_doc_string(function_info.doc)
 
 
     return f"```py\n{format_function_hints(name, function_info)}\n```{doc_string}"
@@ -187,13 +193,11 @@ def get_bolt_completions(
         node = node.value
 
     type_annotation = get_type_annotation(node)
-    logging.debug(type_annotation)
 
     if type_annotation is UNKNOWN_TYPE:
         return
 
     type_info = get_type_info(type_annotation)
-    logging.debug(type_info)
 
     for name, type in type_info.fields.items():
         add_variable_completion(items, name, type)

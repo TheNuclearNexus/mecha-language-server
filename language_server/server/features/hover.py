@@ -37,7 +37,7 @@ def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
 
             if isinstance(node, AstNestedLocation):
                 path = node.__dict__.get("resolved_path")
-
+                
                 if path is not None:
                     namespace, path = resolve_relative_location(
                         path,

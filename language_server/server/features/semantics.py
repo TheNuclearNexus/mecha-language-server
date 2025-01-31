@@ -28,6 +28,7 @@ from lsprotocol import types as lsp
 from mecha import (
     AstCommand,
     AstItemSlot,
+    AstMessageText,
     AstNode,
     AstResourceLocation,
     Mecha,
@@ -147,6 +148,46 @@ class SemanticTokenCollector(Reducer):
                 self.nodes.append((module, type, 0))
                 self.nodes.append((item, type, 0))
 
+        end_location = node.end_location
+
+        prototypes = self.ctx.inject(Mecha).spec.prototypes
+
+        if len(node.arguments) > 0:
+            if node.identifier in prototypes:
+                name_length = len(prototypes[node.identifier].signature[0])
+
+                end_location = SourceLocation(
+                    lineno=node.location.lineno,
+                    pos=node.location.pos + name_length,
+                    colno=node.location.colno + name_length
+                )
+            # if node.location.lineno == node.arguments[0].location.lineno:
+            #     command_name_offset = (
+            #         node.arguments[0].location.pos - node.location.pos - 1
+            #     )
+            #     end_location = SourceLocation(
+            #         lineno=node.location.lineno,
+            #         pos=node.location.pos + command_name_offset,
+            #         colno=node.location.colno + command_name_offset,
+            #     )
+            else:
+                return
+
+        logging.debug(f"semantic token for {node}")
+        temp_node = AstNode(location=node.location, end_location=end_location)
+        logging.debug(f"{temp_node.location} {temp_node.end_location}")
+        self.nodes.append(
+            (
+                temp_node,
+                (
+                    TOKEN_TYPES["keyword"]
+                    if "subcommand" not in node.identifier or node.identifier == "execute:subcommand"
+                    else TOKEN_TYPES["macro"]
+                ),
+                0,
+            )
+        )
+
     @rule(AstFromImport)
     def from_import(self, from_import: AstFromImport):
         if isinstance(from_import, AstPrelude):
@@ -248,8 +289,6 @@ class SemanticTokenCollector(Reducer):
 
     @rule(AstAssignment)
     def assignment(self, assignment: AstAssignment):
-        operator = assignment.operator
-
         self.generic_identifier(assignment.target)
 
         if assignment.type_annotation != None:
@@ -258,7 +297,9 @@ class SemanticTokenCollector(Reducer):
     def generic_identifier(self, identifier: Any):
         annotation = get_type_annotation(identifier)
 
-        if annotation is not None and (inspect.isfunction(annotation) or inspect.isbuiltin(annotation)):
+        if annotation is not None and (
+            inspect.isfunction(annotation) or inspect.isbuiltin(annotation)
+        ):
             self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
         elif annotation is not None and get_origin(annotation) is type:
             self.nodes.append((identifier, TOKEN_TYPES["class"], 0))
@@ -297,6 +338,7 @@ class SemanticTokenCollector(Reducer):
 
         tokens: list[tuple[int, ...]] = []
 
+        self.nodes = sorted(self.nodes, key=lambda n: n[0].location.pos)
         for i in range(len(self.nodes)):
             prev_node = None
             if i > 0:

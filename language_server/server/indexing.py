@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import dataclass, field
 from functools import reduce
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, get_args, get_origin
 
 from beet.core.utils import extra_field, required_field
 from bolt import (
@@ -29,6 +29,7 @@ from mecha import (
     AstParticle,
     AstResourceLocation,
     AstSelectorArgument,
+    Mecha,
     Reducer,
     rule,
 )
@@ -77,9 +78,7 @@ def expression_to_annotation(expression):
 
 
 def was_referenced(references: list[AstNode], identifier: AstNode):
-    logging.debug(f"{identifier.location} -> {identifier.end_location}")
     for reference in references:
-        logging.debug(f"{reference.location} -> {reference.end_location}")
         if (
             reference.location == identifier.location
             and reference.end_location == identifier.end_location
@@ -134,13 +133,14 @@ T = TypeVar("T", bound=AstNode)
 def index_function_ast(
     ast: T,
     function_location: str,
+    mecha: Mecha,
     runtime: Runtime | None = None,
     module: CompiledModule | None = None,
 ) -> T:
     resolve_paths(ast, path="/".join(function_location.split(":")[1:]))
     try:
         initial_values = InitialValues()
-        bindings = Bindings(module=module, runtime=runtime)
+        bindings = Bindings(module=module, runtime=runtime, mecha=mecha)
 
         return bindings(initial_values(ast))
     except Exception as e:
@@ -207,12 +207,10 @@ class InitialValues(Reducer):
 class Bindings(Reducer):
     module: Optional[CompiledModule] = required_field()
     runtime: Optional[Runtime] = required_field()
+    mecha: Mecha = required_field()
 
     @rule(AstIdentifier)
     def identifier(self, identifier):
-        logging.debug(identifier)
-        logging.debug(self.module)
-        logging.debug(self.runtime)
         if (
             get_type_annotation(identifier)
             or self.module is None
@@ -245,15 +243,19 @@ class Bindings(Reducer):
         if get_type_annotation(call):
             return call
 
-        function = get_type_annotation(call.value)
+        callable = get_type_annotation(call.value)
 
-        if function is UNKNOWN_TYPE:
+        if callable is UNKNOWN_TYPE:
             set_type_annotation(call, UNKNOWN_TYPE)
             return call
 
-        info = FunctionInfo.extract(function)
+        if get_origin(callable) is type:
+            callable = get_args(callable)[0]
+            info = FunctionInfo.extract(callable.__call__)
+            info.return_annotation = callable
+        else:
+            info = FunctionInfo.extract(callable)
 
-        call.__dict__["debug"] = info
         if info.return_annotation is inspect.Parameter.empty:
             set_type_annotation(call, UNKNOWN_TYPE)
             return call
@@ -263,13 +265,16 @@ class Bindings(Reducer):
 
     @rule(AstCommand)
     def command(self, command: AstCommand):
-        argument_types = command.identifier.split(":")
+        if not (prototype := self.mecha.spec.prototypes.get(command.identifier)):
+            return
 
-        for arg_type, arg_node in zip(argument_types[1:], command.arguments):
+        for i, argument in enumerate(command.arguments):
 
-            match arg_node:
+            match argument:
                 case AstResourceLocation():
-                    add_representation(arg_node, arg_type)
+                    command_tree_node = self.mecha.spec.tree.get(prototype.get_argument(i).scope)
+                    if command_tree_node and command_tree_node.parser:
+                        add_representation(argument, command_tree_node.parser)
 
     @rule(AstBlock)
     def block(self, block: AstBlock):

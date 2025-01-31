@@ -43,7 +43,6 @@ class FunctionInfo:
     def extract(field_value: Any):
         try:
             hints = typing.get_type_hints(field_value)
-            logging.debug(hints)
             signature = inspect.signature(field_value)
             return FunctionInfo.from_signature(signature, field_value.__doc__, hints)
         except Exception as e:
@@ -54,7 +53,7 @@ class FunctionInfo:
                         ParameterInfo(inspect.Parameter.empty, inspect.Parameter.empty),
                     )
                 ],
-                return_annotation="???",
+                return_annotation=UNKNOWN_TYPE,
                 doc="Error while extracting signature: " + str(e),
             )
 
@@ -165,7 +164,7 @@ def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "de
 
         annotation_string = ": " + str(annotation) if annotation else ""
         default_string = (
-            " = " + parameter.default.__repr__()
+            " = " + parameter.default.__repr__() # type: ignore
             if parameter.default is not inspect.Parameter.empty
             else ""
         )
