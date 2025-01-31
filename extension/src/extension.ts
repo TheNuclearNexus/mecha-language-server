@@ -74,6 +74,10 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
     }
 
+    registerCommand(context, "mecha.server.openServerLog", async () => {
+        vscode.window.showTextDocument(vscode.Uri.file(path.join(context.extensionPath, "mecha.log")))
+    })
+
     registerCommand(context, "mecha.server.updateServer", async () => {
         const resp = await fetch(
             "https://nightly.link/TheNuclearNexus/mecha-language-server/workflows/main/main/extension.zip"

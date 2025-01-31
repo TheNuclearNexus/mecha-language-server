@@ -35,6 +35,11 @@
                 "command": "mecha.server.updateServer",
                 "title": "Update from Nightly Build",
                 "category": "mecha"
+            },
+            {
+                "command": "mecha.server.openServerLog",
+                "title": "Open Language Server Log",
+                "category": "mecha"
             }
         ],
         "configuration": [
