@@ -66,10 +66,16 @@ class PipelineShadow(Pipeline):
 
             self.plugins.add(plugin)
 
-            # Advance the plugin only once, ignore remaining work
-            # Most setup happens in the first half of the plugin
-            # where side effects happen in the latter
-            Task(plugin).advance(self.ctx)
+            try:
+                # Advance the plugin only once, ignore remaining work
+                # Most setup happens in the first half of the plugin
+                # where side effects happen in the latter
+                Task(plugin).advance(self.ctx)
+            except Exception as exc:
+                ls = cast(LanguageServerContext, self.ctx).ls
+                message = f"An issue occured while running first step of plugin: {plugin}\n{exc}"
+                ls.show_message(message.split("\n")[0], lsp.MessageType.Warning)
+                ls.show_message_log(message, lsp.MessageType.Warning)
 
 
 # We use this shadow of context in order to route calls to `ctx`
@@ -122,7 +128,7 @@ class ProjectBuilderShadow(ProjectBuilder):
         for plugin in plugins:
             if plugin in excluded_plugins:
                 continue
-
+            
             ctx.require(plugin)
 
     # This stripped down version of build only handles loading the plugins from config

@@ -3,8 +3,9 @@ from functools import reduce
 import inspect
 import logging
 import types
-from typing import Any
+from typing import Any, cast
 
+from beet import File, NamespaceFile
 from bolt import AstAttribute, AstIdentifier, Runtime, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
@@ -107,7 +108,9 @@ def get_completions(
     text_doc: TextDocument,
 ) -> list[lsp.CompletionItem]:
     mecha = ctx.inject(Mecha)
-    compiled_doc = get_compilation_data(ls, ctx, text_doc)
+    
+    if not (compiled_doc := get_compilation_data(ls, ctx, text_doc)):
+        return []
 
     ast = compiled_doc.ast
     diagnostics = compiled_doc.diagnostics
@@ -118,14 +121,24 @@ def get_completions(
     elif ast is not None:
         current_node = get_node_at_position(ast, pos)
 
-        if isinstance(current_node, AstResourceLocation):
-            represents = current_node.__dict__.get("represents")
-            # logging.debug(GAME_REGISTRIES)
-            if represents is not None:
-                add_registry_items(items, represents)
-                add_registry_items(
-                    items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
-                )
+        # if isinstance(current_node, AstResourceLocation):
+        #     resolved_path = current_node.__dict__.get("resolved_path")
+        #     represents = current_node.__dict__.get("represents")
+        #     # logging.debug(GAME_REGISTRIES)
+        #     if represents and issubclass(represents, File):
+        #         file_type = cast(type[NamespaceFile], represents)
+        #         for pack in ctx.packs:
+        #             if file_type not in pack:
+        #                 continue
+        #             logging.debug(ctx.data[file_type])
+        #             for path in pack[file_type]:
+        #                 items.append(lsp.CompletionItem(label=path))
+
+        #     elif isinstance(represents, str):
+        #         add_registry_items(items, represents)
+        #         add_registry_items(
+        #             items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
+        #         )
 
         if isinstance(current_node, AstItemSlot):
             items.extend(

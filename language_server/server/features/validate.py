@@ -73,13 +73,20 @@ def tokenstream_error_to_lsp_diag(
 def get_compilation_data(
     ls: MechaLanguageServer, ctx: LanguageServerContext, text_doc: TextDocument
 ):
-    location = ctx.path_to_resource[text_doc.path][0]
-    if location in COMPILATION_RESULTS:
-        return COMPILATION_RESULTS[location]
+    resource = ctx.path_to_resource.get(text_doc.path)
+    
+    if resource and resource[0] in COMPILATION_RESULTS:
+        return COMPILATION_RESULTS[resource[0]]
 
     validate_function(ls, ctx, text_doc)
+
+    resource = resource or ctx.path_to_resource.get(text_doc.path)
+
+    if resource is None:
+        return None
+
     # logging.debug(COMPILATION_RESULTS)
-    return COMPILATION_RESULTS[location]
+    return COMPILATION_RESULTS[resource[0]]
 
 
 def validate_function(
@@ -203,6 +210,7 @@ def parse_function(
         logging.error(f"{type(exec)}: {exec}")
 
     dependents = set()
+
 
     compiled_module = None
     runtime = ctx.inject(Runtime)

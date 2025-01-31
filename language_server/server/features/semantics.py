@@ -173,9 +173,8 @@ class SemanticTokenCollector(Reducer):
             else:
                 return
 
-        logging.debug(f"semantic token for {node}")
         temp_node = AstNode(location=node.location, end_location=end_location)
-        logging.debug(f"{temp_node.location} {temp_node.end_location}")
+
         self.nodes.append(
             (
                 temp_node,
@@ -358,9 +357,11 @@ def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     if ctx is None:
         data = []
     else:
-        compiled_doc = get_compilation_data(ls, ctx, text_doc)
-        ast = compiled_doc.ast
+        if compiled_doc := get_compilation_data(ls, ctx, text_doc):
+            ast = compiled_doc.ast
 
-        data = SemanticTokenCollector(ctx=ctx).walk(ast) if ast else []
+            data = SemanticTokenCollector(ctx=ctx).walk(ast) if ast else []
+        else:
+            data = []
 
     return lsp.SemanticTokens(data=data)
