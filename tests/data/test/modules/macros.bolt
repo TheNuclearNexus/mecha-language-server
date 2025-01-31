@@ -1,9 +1,13 @@
 
 
+
 def foo():
     pass
 
-function ~/baz:
+
+function ~/baz2:
+    as @e[type=zombie] run say @e
+    setblock ~ ~ ~ minecraft:stone replace
     pass
 
 function ./foo/baz:
@@ -12,5 +16,6 @@ function ./foo/baz:
             pass
 
 function ~/baz2:
+    function test:mac
     pass
-    
+

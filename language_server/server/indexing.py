@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from functools import reduce
 from typing import Any, Optional, TypeVar, get_args, get_origin
 
+from beet import File, Function, LootTable
 from beet.core.utils import extra_field, required_field
 from bolt import (
     AstAssignment,
@@ -36,6 +37,12 @@ from mecha import (
 from mecha.contrib.nested_location import AstNestedLocation
 
 from .utils.reflection import UNKNOWN_TYPE, FunctionInfo
+
+
+PARSER_TO_FILE_TYPE = {
+    "minecraft:function": Function,
+    "minecraft:loot_table": LootTable,
+}
 
 
 def node_to_types(node: AstNode):
@@ -209,6 +216,8 @@ class Bindings(Reducer):
     runtime: Optional[Runtime] = required_field()
     mecha: Mecha = required_field()
 
+    defined_files = []
+
     @rule(AstIdentifier)
     def identifier(self, identifier):
         if (
@@ -272,9 +281,17 @@ class Bindings(Reducer):
 
             match argument:
                 case AstResourceLocation():
-                    command_tree_node = self.mecha.spec.tree.get(prototype.get_argument(i).scope)
+                    command_tree_node = self.mecha.spec.tree.get(
+                        prototype.get_argument(i).scope
+                    )
                     if command_tree_node and command_tree_node.parser:
-                        add_representation(argument, command_tree_node.parser)
+                        add_representation(
+                            argument,
+                            PARSER_TO_FILE_TYPE.get(command_tree_node.parser)
+                            or command_tree_node.parser,
+                        )
+
+
 
     @rule(AstBlock)
     def block(self, block: AstBlock):

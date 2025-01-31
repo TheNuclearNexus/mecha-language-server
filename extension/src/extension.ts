@@ -307,6 +307,8 @@ async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
                 "Configure Python"
             )
             .then(configurePythonAction);
+
+        return false
     }
 
     await checkForVenv(pythonCommand[0]);
