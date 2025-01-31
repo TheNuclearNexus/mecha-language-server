@@ -1,9 +1,10 @@
 from ast import Module
 from dataclasses import dataclass, field, fields, is_dataclass
+from functools import reduce
 import inspect
 import logging
 import types
-from typing import Any, Generic, Optional, TypeVar, Union, Unpack, cast, get_origin
+from typing import Any, Generic, Optional, TypeVar, Union, cast, get_origin
 import typing
 
 from beet.core.utils import extra_field
@@ -54,7 +55,7 @@ def node_to_types(node: AstNode):
         if annotation is not UNKNOWN_TYPE:
             types.append(annotation)
 
-    return Union[Unpack[types]]
+    return reduce(lambda a, b: a | b, types)
 
 
 @dataclass(frozen=True, slots=True)
