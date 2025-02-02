@@ -12,7 +12,6 @@ from language_server.server.features.semantics import (
 )
 from .server.indexing import ProjectIndex
 
-from . import mecha_server
 from .server import MechaLanguageServer
 from .server.features.completion import completion
 from .server.features.definition import get_definition
@@ -22,72 +21,72 @@ from .server.features.references import get_references
 from .server.features.rename import rename_variable
 
 
-@mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
-def did_change(ls: MechaLanguageServer, params: lsp.DidChangeTextDocumentParams):
-    publish_diagnostics(ls, params)
+def create_server():
+    mecha_server = MechaLanguageServer("mecha-language-server", "0.1.0")
 
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
+    def did_change(ls: MechaLanguageServer, params: lsp.DidChangeTextDocumentParams):
+        publish_diagnostics(ls, params)
 
-@mecha_server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
-def did_open(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
-    publish_diagnostics(ls, params)
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
+    def did_open(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
+        publish_diagnostics(ls, params)
 
+    @mecha_server.feature(
+        lsp.TEXT_DOCUMENT_COMPLETION,
+        lsp.CompletionOptions(trigger_characters=[" ", "/", "."]),
+    )
+    def get_completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
+        return completion(ls, params)
 
-@mecha_server.feature(
-    lsp.TEXT_DOCUMENT_COMPLETION, lsp.CompletionOptions(trigger_characters=[" ", "/", "."])
-)
-def get_completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
-    return completion(ls, params)
+    @mecha_server.feature(lsp.INITIALIZED)
+    def initialized(ls: MechaLanguageServer, params: lsp.InitializedParams):
+        ls.setup_workspaces()
 
+    @mecha_server.feature(lsp.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS)
+    def folders_changed(
+        ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFoldersParams
+    ):
+        ls.setup_workspaces()
 
-@mecha_server.feature(lsp.INITIALIZED)
-def initialized(ls: MechaLanguageServer, params: lsp.InitializedParams):
-    ls.setup_workspaces()
+    @mecha_server.feature(
+        lsp.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
+        lsp.SemanticTokensLegend(
+            token_types=list(TOKEN_TYPES.keys()),
+            token_modifiers=list(TOKEN_MODIFIERS.keys()),
+        ),
+    )
+    def semantic_tokens_full(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
+        return semantic_tokens(ls, params)
 
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_DEFINITION)
+    def definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
+        return get_definition(ls, params)
 
-@mecha_server.feature(lsp.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS)
-def folders_changed(
-    ls: MechaLanguageServer, params: lsp.DidChangeWorkspaceFoldersParams
-):
-    ls.setup_workspaces()
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_REFERENCES)
+    def references(ls: MechaLanguageServer, params: lsp.ReferenceParams):
+        return get_references(ls, params)
 
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_HOVER)
+    def hover(ls: MechaLanguageServer, params: lsp.HoverParams):
+        return get_hover(ls, params)
 
-@mecha_server.feature(
-    lsp.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
-    lsp.SemanticTokensLegend(
-        token_types=list(TOKEN_TYPES.keys()),
-        token_modifiers=list(TOKEN_MODIFIERS.keys()),
-    ),
-)
-def semantic_tokens_full(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
-    return semantic_tokens(ls, params)
+    @mecha_server.feature(lsp.TEXT_DOCUMENT_RENAME)
+    def rename(ls: MechaLanguageServer, params: lsp.RenameParams):
+        return rename_variable(ls, params)
 
+    @mecha_server.command("mecha.server.dumpIndices")
+    def dump(ls: MechaLanguageServer, *args):
+        ls.show_message_log(ProjectIndex.dump())
 
-@mecha_server.feature(lsp.TEXT_DOCUMENT_DEFINITION)
-def definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
-    return get_definition(ls, params)
+    @mecha_server.command("mecha.server.toggleASTDebug")
+    def toggle_ast_debug(ls: MechaLanguageServer, *args):
+        language_server.server.features.hover.DEBUG_AST = (
+            not language_server.server.features.hover.DEBUG_AST
+        )
 
+    return mecha_server
 
-@mecha_server.feature(lsp.TEXT_DOCUMENT_REFERENCES)
-def references(ls: MechaLanguageServer, params: lsp.ReferenceParams):
-    return get_references(ls, params)
-
-
-@mecha_server.feature(lsp.TEXT_DOCUMENT_HOVER)
-def hover(ls: MechaLanguageServer, params: lsp.HoverParams):
-    return get_hover(ls, params)
-
-
-@mecha_server.feature(lsp.TEXT_DOCUMENT_RENAME)
-def rename(ls: MechaLanguageServer, params: lsp.RenameParams):
-    return rename_variable(ls, params)
-
-@mecha_server.command('mecha.server.dumpIndices')
-def dump(ls: MechaLanguageServer, *args):
-    ls.show_message_log(ProjectIndex.dump())
-
-@mecha_server.command('mecha.server.toggleASTDebug')
-def toggle_ast_debug(ls: MechaLanguageServer, *args):
-    language_server.server.features.hover.DEBUG_AST = not language_server.server.features.hover.DEBUG_AST
 
 def add_arguments(parser: argparse.ArgumentParser):
     parser.description = "simple json server example"
@@ -117,6 +116,7 @@ def main():
     add_arguments(parser)
     args = parser.parse_args()
 
+    mecha_server = create_server()
     language_server.server.features.hover.DEBUG_AST = args.debug_ast
 
     mecha_server.set_sites(args.site)
