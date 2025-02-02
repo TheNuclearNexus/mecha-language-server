@@ -70,8 +70,6 @@ from mecha.contrib.nested_location import (
 )
 from tokenstream import SourceLocation
 
-from .patches import AstRelativeLocation, RelativeLocationTransformer
-
 from .shadows.context import LanguageServerContext
 from .utils.reflection import UNKNOWN_TYPE, FunctionInfo
 
@@ -371,12 +369,11 @@ class InitialStep(Reducer):
 
     @rule(AstResourceLocation)
     def resource_location(self, node: AstResourceLocation):
-        if isinstance(node, AstRelativeLocation):
-            node.__dict__["unresolved_path"] = node.path
-        elif isinstance(node, AstNestedLocation):
+        
+        if isinstance(node, AstNestedLocation):
             node.__dict__["unresolved_path"] = f"~/" + node.path
         else:
-            node.__dict__["unresolved_path"] = node.get_value()
+            node.__dict__.setdefault("unresolved_path", node.get_canonical_value())
 
 
 @dataclass
@@ -590,9 +587,6 @@ class Indexer(MutatingReducer):
             },
         )
 
-        # Transform paths to absolute versions
-        relative_locations = RelativeLocationTransformer(database=mecha.database)
-
         # This has to been done through extension because i'm too lazy to shadow or patch it
         self.extend(
             NestedLocationTransformer(
@@ -602,7 +596,6 @@ class Indexer(MutatingReducer):
 
         steps: list[Callable[[AstRoot], AstRoot]] = [
             initial_values,
-            relative_locations,
             super().__call__,
             bindings,
         ]
