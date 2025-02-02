@@ -159,7 +159,7 @@ class SemanticTokenCollector(Reducer):
                 end_location = SourceLocation(
                     lineno=node.location.lineno,
                     pos=node.location.pos + name_length,
-                    colno=node.location.colno + name_length
+                    colno=node.location.colno + name_length,
                 )
             # if node.location.lineno == node.arguments[0].location.lineno:
             #     command_name_offset = (
@@ -180,7 +180,8 @@ class SemanticTokenCollector(Reducer):
                 temp_node,
                 (
                     TOKEN_TYPES["keyword"]
-                    if "subcommand" not in node.identifier or node.identifier == "execute:subcommand"
+                    if "subcommand" not in node.identifier
+                    or node.identifier == "execute:subcommand"
                     else TOKEN_TYPES["macro"]
                 ),
                 0,
@@ -352,16 +353,15 @@ class SemanticTokenCollector(Reducer):
 
 def semantic_tokens(ls: MechaLanguageServer, params: lsp.SemanticTokensParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    ctx = ls.get_context(text_doc)
-
-    if ctx is None:
-        data = []
-    else:
-        if compiled_doc := get_compilation_data(ls, ctx, text_doc):
-            ast = compiled_doc.ast
-
-            data = SemanticTokenCollector(ctx=ctx).walk(ast) if ast else []
-        else:
+    with ls.context(text_doc) as ctx:
+        if ctx is None:
             data = []
+        else:
+            if compiled_doc := get_compilation_data(ctx, text_doc):
+                ast = compiled_doc.ast
+
+                data = SemanticTokenCollector(ctx=ctx).walk(ast) if ast else []
+            else:
+                data = []
 
     return lsp.SemanticTokens(data=data)

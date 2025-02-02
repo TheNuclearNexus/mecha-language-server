@@ -35,9 +35,8 @@ import {
 } from "vscode-languageclient/node";
 import { exec, ExecException } from "child_process";
 import * as JSZip from "jszip";
-import { log } from "console";
 
-const MIN_PYTHON = semver.parse("3.7.9");
+const MIN_PYTHON = semver.parse("3.10.0");
 
 // Some other nice to haves.
 // TODO: Check selected env satisfies mecha' requirements - if not offer to run the select env command.
@@ -137,6 +136,7 @@ export async function activate(context: vscode.ExtensionContext) {
         await executeServerCommand();
     });
 
+
     // Restart the language server if the user switches Python envs...
     context.subscriptions.push(
         python.environments.onDidChangeActiveEnvironmentPath(async () => {
@@ -179,6 +179,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 export function deactivate(): Thenable<void> {
     return stopLangServer();
+}
+
+async function onNotification() {
+    
 }
 
 /**
@@ -258,6 +262,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
     logger.debug(JSON.stringify(serverOptions));
 
     client = new LanguageClient("mecha-lsp", serverOptions, getClientOptions());
+
     const promises = [client.start()];
 
     if (config.get<boolean>("debug")) {
@@ -300,17 +305,6 @@ async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
         return false;
     }
 
-    if (!(await validPythonVersion(pythonCommand[0]))) {
-        vscode.window
-            .showErrorMessage(
-                "Selected Python version is not >= 3.10",
-                "Configure Python"
-            )
-            .then(configurePythonAction);
-
-        return false
-    }
-
     await checkForVenv(pythonCommand[0]);
 
     if (!(await hasBeet(pythonCommand[0]))) {
@@ -340,25 +334,6 @@ async function runPythonCommand(
     });
 }
 
-async function validPythonVersion(pythonCommand: string): Promise<boolean> {
-    logger.debug("Checking python version...");
-
-    try {
-        const [error, stdout] = await runPythonCommand(pythonCommand, [
-            "--version",
-        ]);
-        if (error) throw error;
-
-        const match = /Python\s*(([0-9]+\.?){3,})/gi.exec(stdout)
-
-        if (!match)
-            throw Error(`Unable to extract Python version from: '${stdout}'`);
-      
-        return semver.gte(match[1], "3.10.0");
-    } catch (e) {
-        logger.error(`Error encountered while checking Python version!\n${e}`);
-    }
-}
 
 async function checkForVenv(pythonCommand: string) {
     logger.debug("Checking if python is a venv...");

@@ -10,11 +10,13 @@ from language_server.server.features.semantics import (
     TOKEN_TYPES,
     semantic_tokens,
 )
+from .server.indexing import ProjectIndex
 
 from . import mecha_server
 from .server import MechaLanguageServer
-from .server.features import completion, validate
+from .server.features.completion import completion
 from .server.features.definition import get_definition
+from .server.features.diagnostics import publish_diagnostics
 from .server.features.hover import get_hover
 from .server.features.references import get_references
 from .server.features.rename import rename_variable
@@ -22,16 +24,16 @@ from .server.features.rename import rename_variable
 
 @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
 def did_change(ls: MechaLanguageServer, params: lsp.DidChangeTextDocumentParams):
-    validate(ls, params)
+    publish_diagnostics(ls, params)
 
 
 @mecha_server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
 def did_open(ls: MechaLanguageServer, params: lsp.DidOpenTextDocumentParams):
-    validate(ls, params)
+    publish_diagnostics(ls, params)
 
 
 @mecha_server.feature(
-    lsp.TEXT_DOCUMENT_COMPLETION, lsp.CompletionOptions(trigger_characters=[" "])
+    lsp.TEXT_DOCUMENT_COMPLETION, lsp.CompletionOptions(trigger_characters=[" ", "/", "."])
 )
 def get_completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     return completion(ls, params)
@@ -79,6 +81,13 @@ def hover(ls: MechaLanguageServer, params: lsp.HoverParams):
 def rename(ls: MechaLanguageServer, params: lsp.RenameParams):
     return rename_variable(ls, params)
 
+@mecha_server.command('mecha.server.dumpIndices')
+def dump(ls: MechaLanguageServer, *args):
+    ls.show_message_log(ProjectIndex.dump())
+
+@mecha_server.command('mecha.server.toggleASTDebug')
+def toggle_ast_debug(ls: MechaLanguageServer, *args):
+    language_server.server.features.hover.DEBUG_AST = not language_server.server.features.hover.DEBUG_AST
 
 def add_arguments(parser: argparse.ArgumentParser):
     parser.description = "simple json server example"
@@ -118,6 +127,8 @@ def main():
         mecha_server.start_ws(args.host, args.port)
     else:
         mecha_server.start_io()
+
+    mecha_server._kill()
 
 
 if __name__ == "__main__":

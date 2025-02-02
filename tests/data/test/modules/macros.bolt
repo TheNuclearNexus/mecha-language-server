@@ -1,5 +1,13 @@
 
+loot_table ./test {
+    "pools": [
+        
+    ]
+}
 
+function_tag load {
+
+}
 
 def foo():
     pass
@@ -8,14 +16,13 @@ def foo():
 function ~/baz2:
     as @e[type=zombie] run say @e
     setblock ~ ~ ~ minecraft:stone replace
-    pass
 
 function ./foo/baz:
-    function ./bar:
-        function ~/:
-            pass
+    function ~/t
 
-function ~/baz2:
-    function test:mac
-    pass
+append function ./bar3:
+    say hi
 
+TEST = 1
+
+loot give @s loot ./test

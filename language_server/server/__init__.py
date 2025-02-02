@@ -3,13 +3,18 @@ import json
 import logging
 import os
 import sys
+import time
+from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock, Thread
+from typing import Generator, cast
 from urllib import request
 from urllib.parse import unquote, urlparse
 from urllib.request import url2pathname
 
 from beet import (
     Context,
+    Function,
     NamespaceFile,
     PluginError,
     PluginImportError,
@@ -19,12 +24,16 @@ from beet import (
     locate_config,
 )
 from beet.library.base import LATEST_MINECRAFT_VERSION
+from bolt import Module
 from lsprotocol import types as lsp
 from mecha import DiagnosticErrorSummary, Mecha
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
-from .shadows import LanguageServerContext, ProjectBuilderShadow
+from .features.validate import validate_function
+from .shadows.compile_document import COMPILATION_RESULTS
+from .shadows.context import LanguageServerContext
+from .shadows.project_builder import ProjectBuilderShadow
 
 logging.basicConfig(filename="mecha.log", filemode="w", level=logging.DEBUG)
 
@@ -33,15 +42,49 @@ GAME_REGISTRIES: dict[str, list[str]] = {}
 
 
 class MechaLanguageServer(LanguageServer):
-    instances: dict[Path, LanguageServerContext] = dict()
+    _instances: dict[Path, tuple[Lock, LanguageServerContext]] = dict()
     _sites: list[str] = []
+    _index_thread: Thread
+    _alive: bool = True
 
     def set_sites(self, sites: list[str]):
         self._sites = sites
 
     def __init__(self, *args):
         super().__init__(*args)
-        self.instances = {}
+        self._instances = {}
+        self._index_thread = Thread(
+            target=lambda self: self.scan_functions(), args=[self]
+        )
+        self._index_thread.start()
+
+    def index_functions(self, ctx: LanguageServerContext):
+        for function, file in cast(
+            list[tuple[str, Function | Module]],
+            [*ctx.data.functions.items(), *ctx.data[Module].items()],
+        ):
+            if function not in COMPILATION_RESULTS and file.source_path:
+                self.show_message_log("indexing " + function, lsp.MessageType.Debug)
+                validate_function(
+                    ctx, self.workspace.get_document(Path(file.source_path).as_uri())
+                )
+                break
+
+    def scan_functions(self):
+        try:
+
+            while self._alive:
+                for lock, ctx in self._instances.values():
+                    if not lock.acquire(blocking=False):
+                        continue
+
+                    self.index_functions(ctx)
+
+                    lock.release()
+                    time.sleep(0.1)
+        except Exception as exc:
+            lock.release()
+            logging.error(f"Fatal error occured while indexing function!\n{exc}")
 
     def load_registry(self, minecraft_version: str):
         """Load the game registry from Misode's mcmeta repository"""
@@ -164,7 +207,7 @@ class MechaLanguageServer(LanguageServer):
         for config_path in config_paths:
             try:
                 if config := self.create_instance(config_path):
-                    self.instances[config_path.parent] = config
+                    self._instances[config_path.parent] = (Lock(), config)
             except Exception as exc:
                 logging.error(
                     f"Failed to load config at {config_path} due to the following\n{exc}"
@@ -181,28 +224,37 @@ class MechaLanguageServer(LanguageServer):
         return norm_path
 
     def get_instance(self, config_path: Path):
-        if config_path not in self.instances or self.instances[config_path] is None:
+        if config_path not in self._instances or self._instances[config_path] is None:
             instance = self.create_instance(config_path)
 
             if instance is not None:
-                self.instances[config_path] = instance
+                self._instances[config_path] = (Lock(), instance)
 
-            return instance
-        else:
-            return self.instances[config_path]
+        return self._instances[config_path]
 
-    def get_context(self, document: TextDocument):
+    @contextmanager
+    def context(
+        self, document: TextDocument
+    ) -> Generator[LanguageServerContext | None, None, None]:
         doc_path = Path(document.path)
 
         parents: list[Path] = []
 
-        for parent_path in self.instances.keys():
+        for parent_path in self._instances.keys():
             if doc_path.is_relative_to(parent_path):
                 parents.append(parent_path)
+
+        if len(parents) <= 0:
+            yield None
 
         parents = sorted(parents, key=lambda p: len(str(p).split(os.path.sep)))
         # logging.debug(parents)
         # # logging.debug(parents[-1])
-        instance = self.get_instance(parents[-1])
+        (lock, context) = self.get_instance(parents[-1])
 
-        return instance
+        lock.acquire()
+        yield context
+        lock.release()
+
+    def _kill(self):
+        self._alive = False

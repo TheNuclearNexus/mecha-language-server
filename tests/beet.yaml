@@ -2,9 +2,6 @@ pipeline:
   - mecha
 require:
   - bolt
-  - bolt_expressions
-  - bolt_selectors
-  - foo
 
 data_pack:
   load: 

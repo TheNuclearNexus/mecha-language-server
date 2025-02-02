@@ -1,44 +1,63 @@
 import logging
-from typing import Any
+from typing import Any, Iterable, cast
 
+from beet import NamespaceFile
 from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
 from lsprotocol import types as lsp
-from mecha import AstNode
+from mecha import AstNode, AstResourceLocation
 from tokenstream import SourceLocation
+
+from ..indexing import ProjectIndex
 
 from .. import MechaLanguageServer
 from .validate import get_compilation_data
 
 
-def node_location_to_range(node: AstNode):
+def get_representation_file(project_index: ProjectIndex, node: AstResourceLocation):
+    if not (represents := cast(type[NamespaceFile]|str|None, node.__dict__.get("represents"))):
+            return None
+        
+    if isinstance(represents, str):
+        return None
+        
+    return represents
+
+
+def node_location_to_range(node: AstNode | Iterable[SourceLocation]):
+    if isinstance(node, AstNode):
+        location = node.location
+        end_location = node.end_location
+    else:
+        location, end_location = node
+
     return lsp.Range(
-        start=lsp.Position(
-            line=node.location.lineno - 1, character=node.location.colno - 1
-        ),
-        end=lsp.Position(
-            line=node.end_location.lineno - 1, character=node.end_location.colno - 1
-        ),
+        start=location_to_position(location), end=location_to_position(end_location)
     )
 
 
 def node_start_to_range(node: AstNode):
-    start = lsp.Position(
-        line=node.location.lineno - 1, character=node.location.colno - 1
-    )
+    start = location_to_position(node.location)
     end = lsp.Position(line=start.line, character=start.character + 1)
 
     return lsp.Range(start=start, end=end)
 
 
+def location_to_position(location: SourceLocation) -> lsp.Position:
+    return lsp.Position(
+        line=max(location.lineno - 1, 0),
+        character=max(location.colno - 1, 0),
+    )
+
+
 def fetch_compilation_data(ls: MechaLanguageServer, params: Any):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    ctx = ls.get_context(text_doc)
+    with ls.context(text_doc) as ctx:
 
-    if ctx is None:
-        return None
+        if ctx is None:
+            return None
 
-    compiled_doc = get_compilation_data(ls, ctx, text_doc)
-    return compiled_doc
+        compiled_doc = get_compilation_data(ctx, text_doc)
+        return compiled_doc
 
 
 def get_node_at_position(root: AstNode, pos: lsp.Position):

@@ -164,7 +164,7 @@ def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "de
 
         annotation_string = ": " + str(annotation) if annotation else ""
         default_string = (
-            " = " + parameter.default.__repr__() # type: ignore
+            " = " + parameter.default.__repr__()  # type: ignore
             if parameter.default is not inspect.Parameter.empty
             else ""
         )

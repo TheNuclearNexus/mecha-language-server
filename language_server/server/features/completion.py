@@ -1,8 +1,9 @@
 import builtins
-from functools import reduce
 import inspect
 import logging
+from pathlib import Path
 import types
+from functools import reduce
 from typing import Any, cast
 
 from beet import File, NamespaceFile
@@ -20,11 +21,15 @@ from mecha import (
 from pygls.workspace import TextDocument
 from tokenstream import InvalidSyntax, UnexpectedEOF, UnexpectedToken
 
-from language_server.server.features.helpers import get_node_at_position
-from language_server.server.shadows import CompiledDocument, LanguageServerContext
+from language_server.server.features.helpers import (
+    get_node_at_position,
+    node_location_to_range,
+)
 
 from ...server import GAME_REGISTRIES, MechaLanguageServer
-from ..indexing import get_type_annotation
+from ..indexing import ProjectIndex, get_type_annotation
+from ..shadows.context import LanguageServerContext
+from ..shadows.compile_document import CompilationError
 from ..utils.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
@@ -91,25 +96,32 @@ def get_token_options(mecha: Mecha, token_type: str, value: str | None):
 
 def completion(ls: MechaLanguageServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
-    ctx = ls.get_context(text_doc)
 
-    if ctx is None:
-        items = []
+    with ls.context(text_doc) as ctx:
+        if ctx is None:
+            items = []
+        else:
+            items = get_completions(ctx, params.position, text_doc)
+
+        return lsp.CompletionList(False, items)
+
+
+def get_path(path: str) -> tuple[str | None, Path]:
+    segments = path.split(":")
+    if len(segments) == 1:
+        return (None, Path(segments[0]))
     else:
-        items = get_completions(ls, ctx, params.position, text_doc)
-
-    return lsp.CompletionList(False, items)
+        return (segments[0], Path(segments[1]))
 
 
 def get_completions(
-    ls: MechaLanguageServer,
     ctx: LanguageServerContext,
     pos: lsp.Position,
     text_doc: TextDocument,
 ) -> list[lsp.CompletionItem]:
     mecha = ctx.inject(Mecha)
-    
-    if not (compiled_doc := get_compilation_data(ls, ctx, text_doc)):
+
+    if not (compiled_doc := get_compilation_data(ctx, text_doc)):
         return []
 
     ast = compiled_doc.ast
@@ -121,24 +133,69 @@ def get_completions(
     elif ast is not None:
         current_node = get_node_at_position(ast, pos)
 
-        # if isinstance(current_node, AstResourceLocation):
-        #     resolved_path = current_node.__dict__.get("resolved_path")
-        #     represents = current_node.__dict__.get("represents")
-        #     # logging.debug(GAME_REGISTRIES)
-        #     if represents and issubclass(represents, File):
-        #         file_type = cast(type[NamespaceFile], represents)
-        #         for pack in ctx.packs:
-        #             if file_type not in pack:
-        #                 continue
-        #             logging.debug(ctx.data[file_type])
-        #             for path in pack[file_type]:
-        #                 items.append(lsp.CompletionItem(label=path))
+        if isinstance(current_node, AstResourceLocation):
+            represents = current_node.__dict__.get("represents")
+            # logging.debug(GAME_REGISTRIES)
+            if represents and issubclass(represents, File):
+                file_type = cast(type[NamespaceFile], represents)
 
-        #     elif isinstance(represents, str):
-        #         add_registry_items(items, represents)
-        #         add_registry_items(
-        #             items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
-        #         )
+
+                path = current_node.get_canonical_value()
+
+                if current_node.is_tag:
+                    path = path[1:]
+                    
+                project_index = ProjectIndex.get(ctx)
+
+                resolved = get_path(path)
+
+                unresolved = get_path(current_node.__dict__["unresolved_path"])
+
+                if unresolved[1].name == "~":
+                    resolved_parent = resolved[1]
+                    unresolved_parent = unresolved[1]
+                else:
+                    resolved_parent = resolved[1].parent
+                    unresolved_parent = unresolved[1].parent
+
+                for file in project_index[file_type]:
+                    file_path = get_path(file)
+
+                    if not (
+                        file_path[0] == resolved[0]
+                        and file_path[1].is_relative_to(resolved_parent)
+                    ):
+                        continue
+
+                    relative = file_path[1].relative_to(resolved_parent)
+
+                    if unresolved[0] is None and unresolved[1].name == "":
+                            new_path = "./" + str(relative)
+                    else:
+                        new_path = str(unresolved_parent / relative)
+
+
+                    insert_text = f"{unresolved[0] + ':' if unresolved[0] else ''}{new_path}"
+                    if current_node.is_tag:
+                        insert_text = "#" + insert_text
+
+                    items.append(
+                        lsp.CompletionItem(
+                            label=insert_text,
+                            documentation=file,
+                            text_edit=lsp.InsertReplaceEdit(
+                                insert_text,
+                                node_location_to_range(current_node),
+                                node_location_to_range(current_node),
+                            ),
+                        )
+                    )
+
+            elif isinstance(represents, str):
+                add_registry_items(items, represents)
+                add_registry_items(
+                    items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
+                )
 
         if isinstance(current_node, AstItemSlot):
             items.extend(
@@ -147,10 +204,11 @@ def get_completions(
                     for k in TOKEN_HINTS["item_slot"]
                 ]
             )
-        
-        
+
         # logging.debug(f"\n\n{current_node}\n\n")
-        if isinstance(current_node, AstIdentifier) or isinstance(current_node, AstAttribute):
+        if isinstance(current_node, AstIdentifier) or isinstance(
+            current_node, AstAttribute
+        ):
             get_bolt_completions(current_node, items)
 
     return items
@@ -171,8 +229,10 @@ def add_registry_items(
             ]
         )
 
+
 def get_doc_string(doc: Any):
     return "\n---\n" + doc if isinstance(doc, str) else ""
+
 
 def get_variable_description(name: str, value: Any):
     doc_string = get_doc_string(value.__doc__)
@@ -181,7 +241,7 @@ def get_variable_description(name: str, value: Any):
 
 def get_class_description(name: str, value: type):
     doc_string = get_doc_string(value)
-    
+
     return f"```python\nclass {name}()\n```{doc_string}"
 
 
@@ -193,7 +253,6 @@ def get_function_description(name: str, function: Any):
         function_info = FunctionInfo.extract(function)
 
     doc_string = get_doc_string(function_info.doc)
-
 
     return f"```py\n{format_function_hints(name, function_info)}\n```{doc_string}"
 
@@ -229,7 +288,10 @@ def get_bolt_completions(
 
 
 def get_diag_completions(
-    pos: lsp.Position, mecha: Mecha, runtime: Runtime, diagnostics: list[InvalidSyntax]
+    pos: lsp.Position,
+    mecha: Mecha,
+    runtime: Runtime,
+    diagnostics: list[CompilationError],
 ):
     items = []
     for diagnostic in diagnostics:
@@ -291,13 +353,23 @@ def add_class_completion(items: list[lsp.CompletionItem], name: str, _type):
     description = get_class_description(name, _type)
     documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
-    items.append(lsp.CompletionItem(name, documentation=documentation, kind=lsp.CompletionItemKind.Class))
+    items.append(
+        lsp.CompletionItem(
+            name, documentation=documentation, kind=lsp.CompletionItemKind.Class
+        )
+    )
+
 
 def add_function_completion(items: list[lsp.CompletionItem], name: str, function):
     description = get_function_description(name, function)
     documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
-    items.append(lsp.CompletionItem(name, documentation=documentation, kind=lsp.CompletionItemKind.Function))
+    items.append(
+        lsp.CompletionItem(
+            name, documentation=documentation, kind=lsp.CompletionItemKind.Function
+        )
+    )
+
 
 def add_variable_completion(items: list[lsp.CompletionItem], name: str, _type):
     kind = (
