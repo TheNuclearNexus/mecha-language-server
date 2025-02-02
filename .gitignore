@@ -10,3 +10,4 @@ mecha.log
 .DS_Store
 dist/
 build/
+testing/

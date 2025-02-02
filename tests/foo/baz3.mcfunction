@@ -1,2 +1,0 @@
-say baa
-say ssa
