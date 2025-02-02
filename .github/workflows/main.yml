@@ -25,7 +25,7 @@ jobs:
     - name: Clone Forks of beet and bolt
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
     - name: Shiv language server
-      run: ./build_extension.sh
+      run: ./build_zipapp.sh
 
     - name: Use Node.js
       uses: actions/setup-node@v2
