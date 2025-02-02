@@ -20,8 +20,10 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/setup-python@v4
       with:
-        python-version: "3.11"
+        python-version: "3.10"
     - uses: Gr1N/setup-poetry@v8
+    - name: Test LSP starts
+      run: poetry run python -m language_server --help
     - name: Clone Forks of beet and bolt
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
     - name: Shiv language server

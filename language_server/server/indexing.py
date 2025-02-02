@@ -13,7 +13,6 @@ from typing import (
     Callable,
     ClassVar,
     Optional,
-    Self,
     TypeVar,
     get_args,
     get_origin,
@@ -210,7 +209,7 @@ class ResourceIndex:
 
 
 class ProjectIndex:
-    _projects: ClassVar[dict[str, Self]] = dict()
+    _projects: ClassVar[dict[str, "ProjectIndex"]] = dict()
     _resources: dict[type[NamespaceFile], ResourceIndex] = dict()
     _ctx: Context
 
