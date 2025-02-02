@@ -25,7 +25,7 @@ jobs:
     - name: Clone Forks of beet and bolt
       run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
     - name: Test LSP starts
-      run: poetry run python -m language_server --help
+      run: poetry install && poetry run python -m language_server --help
     - name: Shiv language server
       run: ./build_zipapp.sh
 
