@@ -4,7 +4,7 @@ from functools import partial
 import logging
 import os
 import traceback
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import Any, TypeVar
 
 from beet import Context, DataPack, Function, NamespaceFile, PackLoadUrl, TextFileBase
@@ -18,6 +18,7 @@ from mecha import (
     CompilationUnit,
     Diagnostic,
     DiagnosticCollection,
+    CompilationError as McCompilationError,
     Dispatcher,
     Mecha,
     MutatingReducer,
@@ -29,7 +30,7 @@ from mecha.contrib.nested_location import (
 )
 from mecha.ast import AstError
 from pygls.workspace import TextDocument
-from tokenstream import InvalidSyntax, TokenStream
+from tokenstream import InvalidSyntax, SourceLocation, TokenStream
 
 from ..indexing import Indexer, ProjectIndex
 from ..shadows.compile_document import (
@@ -272,8 +273,29 @@ def compile(
                                 )
 
                             compilation_unit.diagnostics.extend(step_diagnostics)
-                except Exception as e:
-                    tb = "\n".join(traceback.format_tb(e.__traceback__))
-                    logging.error(f"{type(e)} {e}\n{tb}")
+                except McCompilationError as e:
+                    cause = e.__cause__
+                    tb = traceback.extract_tb(cause.__traceback__)[-1]
+                    logging.error(type(cause))
+                    logging.error(tb)
+
+                    if Path(tb.filename) == Path(source_path):
+                        diagnostics.append(Diagnostic(
+                            message = str(cause),
+                            level="error",
+                            location=SourceLocation(
+                                0,
+                                tb.lineno or 0,
+                                tb.colno or 0
+                            ),
+                            end_location=SourceLocation(
+                                0,
+                                tb.end_lineno or 0,
+                                tb.end_colno or 0
+                            )
+                        ))
+
+                    logging.error("\n".join(traceback.format_tb(cause.__traceback__)))
+                    
 
     return indexer.output_ast, diagnostics
