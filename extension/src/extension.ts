@@ -33,7 +33,7 @@ import {
     URI,
     integer,
 } from "vscode-languageclient/node";
-import { exec, ExecException } from "child_process";
+import { exec, ExecException, execFile, ExecFileException } from "child_process";
 import * as JSZip from "jszip";
 
 const MIN_PYTHON = semver.parse("3.10.0");
@@ -326,9 +326,9 @@ async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
 async function runPythonCommand(
     pythonCommand: string,
     args: string[]
-): Promise<[ExecException | null, string]> {
-    return new Promise<[ExecException | null, string]>((resolve) => {
-        exec([pythonCommand, ...args].join(" "), (error, stdout, _) => {
+): Promise<[ExecFileException | null, string]> {
+    return new Promise<[ExecFileException | null, string]>((resolve) => {
+        execFile(pythonCommand, args, {shell: true}, (error, stdout, _) => {
             resolve([error, stdout]);
         });
     });
@@ -343,6 +343,7 @@ async function checkForVenv(pythonCommand: string) {
             "-c",
             '"import sys; print(sys.prefix != sys.base_prefix)"',
         ]);
+
         if (error) throw error;
 
         if (!stdout.includes("True")) {
