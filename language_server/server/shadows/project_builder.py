@@ -38,6 +38,7 @@ class ProjectBuilderShadow(ProjectBuilder):
         for plugin in plugins:
             if plugin in excluded_plugins:
                 continue
+            logging.debug(f"Requiring plugin {plugin}")
 
             ctx.require(plugin)
 
@@ -52,6 +53,7 @@ class ProjectBuilderShadow(ProjectBuilder):
             tmpdir = None
             cache = self.project.cache
 
+            logging.debug("Creating context...")
             ctx = LanguageServerContext(
                 _pipeline=PipelineShadow,
                 ls=ls,
@@ -79,6 +81,7 @@ class ProjectBuilderShadow(ProjectBuilder):
                 whitelist=self.config.whitelist,
             )
 
+
             pipelined_plugin: list[PluginSpec] = [self.bootstrap]
 
             excluded_plugins = get_excluded_plugins(ctx)
@@ -94,12 +97,14 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             with change_directory(tmpdir):
                 for plugin in pipelined_plugin:
+                    logging.debug(f"Running pipeline {plugin}")
                     ctx.require(plugin)
                 # pipeline = stack.enter_context(ctx.activate())
                 # pipeline.run(plugins)
 
             # Load everything into context *after* the first half of the plugins
             # are ran by the pipeline
+            logging.debug("Loading assets")
             load(
                 resource_pack=self.config.resource_pack.load,
                 data_pack=self.config.data_pack.load,
@@ -109,10 +114,20 @@ class ProjectBuilderShadow(ProjectBuilder):
 
             mc = ctx.inject(Mecha)
 
+            logging.debug("Configuring mecha")
             configure_mecha(mc)
 
-            for pack in ctx.packs:
 
+            
+            for pack in ctx.packs:
+                logging.debug("Enqueuing files in database")
+                # Add file to the compilation database
+                for provider in mc.providers:
+                    for file_instance, compilation_unit in provider(pack, mc.match):
+                        mc.database[file_instance] = compilation_unit
+                        # mc.database.enqueue(file_instance)
+
+                logging.debug("Adding all files to index")
                 # Build a map of file path to resource location
                 for location, file in pack.all():
                     try:

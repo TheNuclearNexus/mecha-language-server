@@ -214,7 +214,6 @@ def compile(
     )
 
     with use_steps(mecha, [indexer, mecha.lint, mecha.transform]):
-        mecha.database.setup_compilation()
 
         # Configure the database to compile the file
         compiled_unit = CompilationUnit(resource_location=resource_location, pack=ctx.data)
