@@ -374,14 +374,13 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
     logger.debug("Checking if beet is install in the enviroment...");
     try {
         const [error, stdout] = await runPythonCommand(pythonCommand, [
-            "-m",
-            "pip",
-            "list",
+            "-c",
+            '"import beet; print(beet.__version__)"'
         ]);
 
         if (error) return false;
 
-        return stdout.match(/beet\s+([0-9]\.?)+/g) != null;
+        return stdout.match(/([0-9]\.?)+/g) != null;
     } catch (e) {
         logger.error(`Error encountered while checking for beet!\n${e}`);
         return false;
