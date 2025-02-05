@@ -6,8 +6,8 @@ from mecha import Diagnostic
 from tokenstream import InvalidSyntax, UnexpectedToken
 
 from .. import AegisServer
-from .validate import validate_function
 from ..shadows.compile_document import CompilationError
+from .validate import validate_function
 
 
 def tokenstream_error_to_lsp_diag(

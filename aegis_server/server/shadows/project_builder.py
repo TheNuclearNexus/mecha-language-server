@@ -14,16 +14,13 @@ from beet import (
 from beet.contrib.load import load
 from beet.core.utils import change_directory, normalize_string
 from mecha import AstResourceLocation, Dispatcher, Mecha, MutatingReducer, Reducer
-
 from pygls.server import LanguageServer
 from tokenstream import TokenStream
 
-from ..patches import apply_patches
-
-from .pipeline import PipelineShadow
-
 from ..indexing import AegisProjectIndex
+from ..patches import apply_patches
 from .context import LanguageServerContext, get_excluded_plugins
+from .pipeline import PipelineShadow
 
 __all__ = ["ProjectBuilderShadow"]
 

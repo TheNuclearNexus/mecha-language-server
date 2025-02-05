@@ -1,42 +1,44 @@
-from contextlib import contextmanager
-from dataclasses import dataclass
-from functools import partial
 import logging
 import os
 import traceback
+from contextlib import contextmanager
+from dataclasses import dataclass
+from functools import partial
 from pathlib import Path, PurePath
 from typing import Any, TypeVar
 
 from beet import Context, DataPack, Function, NamespaceFile, PackLoadUrl, TextFileBase
-from beet.core.utils import required_field, extra_field
+from beet.core.utils import extra_field, required_field
 from bolt import Module, Runtime
 from mecha import (
     AbstractNode,
     AstChildren,
     AstNode,
     AstRoot,
+)
+from mecha import CompilationError as McCompilationError
+from mecha import (
     CompilationUnit,
     Diagnostic,
     DiagnosticCollection,
-    CompilationError as McCompilationError,
     Dispatcher,
     Mecha,
     MutatingReducer,
     rule,
 )
-from mecha.contrib.nested_location import (
-    NestedLocationTransformer,
-    NestedLocationResolver,
-)
 from mecha.ast import AstError
+from mecha.contrib.nested_location import (
+    NestedLocationResolver,
+    NestedLocationTransformer,
+)
 from pygls.workspace import TextDocument
 from tokenstream import InvalidSyntax, SourceLocation, TokenStream
 
-from ..indexing import Indexer, AegisProjectIndex
+from ..indexing import AegisProjectIndex, Indexer
 from ..shadows.compile_document import (
     COMPILATION_RESULTS,
+    CompilationError,
     CompiledDocument,
-    CompilationError
 )
 from ..shadows.context import LanguageServerContext
 

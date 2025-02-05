@@ -1,6 +1,6 @@
-from copy import copy
 import inspect
 import logging
+from copy import copy
 from typing import Any, Iterable, cast, get_args, get_origin
 
 from beet import NamespaceFile
@@ -9,11 +9,16 @@ from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from tokenstream import SourceLocation
 
-from aegis.reflection import FunctionInfo, TypeInfo, format_function_hints, get_name_of_type, get_type_info
-
-from ..indexing import AegisProjectIndex
+from aegis.reflection import (
+    FunctionInfo,
+    TypeInfo,
+    format_function_hints,
+    get_name_of_type,
+    get_type_info,
+)
 
 from .. import AegisServer
+from ..indexing import AegisProjectIndex
 from .validate import get_compilation_data
 
 

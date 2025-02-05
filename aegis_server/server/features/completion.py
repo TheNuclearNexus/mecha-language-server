@@ -1,29 +1,19 @@
 import builtins
 import inspect
-from pathlib import Path
 from functools import reduce
 from typing import Any
 
-from bolt import AstAttribute, AstIdentifier, Runtime, UndefinedIdentifier, Variable
+from bolt import AstAttribute, Runtime, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
-    AstItemSlot,
     AstNode,
-    AstOption,
-    BasicLiteralParser,
     Mecha,
 )
 from pygls.workspace import TextDocument
 from tokenstream import UnexpectedEOF, UnexpectedToken
 
-from aegis_server.server.features.helpers import (
-    get_node_at_position
-)
-
-from ...server import GAME_REGISTRIES, AegisServer
-from ..indexing import get_type_annotation
-from ..shadows.context import LanguageServerContext
-from ..shadows.compile_document import CompilationError
+from aegis.ast.features import AegisFeatureProviders
+from aegis.ast.features.provider import CompletionParams
 from aegis.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
@@ -32,9 +22,13 @@ from aegis.reflection import (
     get_function_description,
     get_type_info,
 )
+from aegis_server.server.features.helpers import get_node_at_position
+
+from ...server import GAME_REGISTRIES, AegisServer
+from ..indexing import get_type_annotation
+from ..shadows.compile_document import CompilationError
+from ..shadows.context import LanguageServerContext
 from .validate import get_compilation_data
-
-
 
 
 def completion(ls: AegisServer, params: lsp.CompletionParams):
@@ -46,16 +40,14 @@ def completion(ls: AegisServer, params: lsp.CompletionParams):
         else:
             items = get_completions(ctx, params.position, text_doc)
 
-        return lsp.CompletionList(False, items)
-
-
+        return lsp.CompletionList(False, items or [])
 
 
 def get_completions(
     ctx: LanguageServerContext,
     pos: lsp.Position,
     text_doc: TextDocument,
-) -> list[lsp.CompletionItem]:
+) -> list[lsp.CompletionItem] | None:
     mecha = ctx.inject(Mecha)
 
     if not (compiled_doc := get_compilation_data(ctx, text_doc)):
@@ -64,27 +56,13 @@ def get_completions(
     ast = compiled_doc.ast
     diagnostics = compiled_doc.diagnostics
 
-    items = []
     if len(diagnostics) > 0:
-        items = get_diag_completions(pos, mecha, ctx.inject(Runtime), diagnostics)
+        return get_diag_completions(pos, mecha, ctx.inject(Runtime), diagnostics)
     elif ast is not None:
-        current_node = get_node_at_position(ast, pos)
+        node = get_node_at_position(ast, pos)
 
-        if isinstance(current_node, AstItemSlot):
-            items.extend(
-                [
-                    lsp.CompletionItem(k, kind=lsp.CompletionItemKind.Value)
-                    for k in TOKEN_HINTS["item_slot"]
-                ]
-            )
-
-        # logging.debug(f"\n\n{current_node}\n\n")
-        if isinstance(current_node, AstIdentifier) or isinstance(
-            current_node, AstAttribute
-        ):
-            get_bolt_completions(current_node, items)
-
-    return items
+        provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
+        return provider.completion(CompletionParams(compiled_doc.ctx, node))
 
 
 def add_registry_items(

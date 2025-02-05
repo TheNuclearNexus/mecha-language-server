@@ -7,7 +7,6 @@ from beet import Context, NamespaceFile, PluginError, PluginSpec, ProjectConfig
 from beet.core.utils import extra_field, local_import_path, required_field
 from pygls.server import LanguageServer
 
-
 __all__ = ["LanguageServerContext"]
 
 

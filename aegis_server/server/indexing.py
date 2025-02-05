@@ -1,10 +1,10 @@
 import builtins
-from copy import copy, deepcopy
 import inspect
 import logging
+import traceback
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from functools import reduce
-import traceback
 from types import ModuleType
 from typing import (
     Any,
@@ -23,7 +23,7 @@ from beet import (
     NamespaceFile,
     Predicate,
 )
-from beet.core.utils import required_field, extra_field
+from beet.core.utils import extra_field, required_field
 from bolt import (
     AstAssignment,
     AstAttribute,
@@ -77,11 +77,6 @@ from mecha.contrib.nested_location import (
 )
 
 from aegis.indexing.project_index import AegisProjectIndex, valid_resource_location
-
-
-from .shadows.compile_document import COMPILATION_RESULTS
-
-from .shadows.context import LanguageServerContext
 from aegis.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
@@ -90,6 +85,8 @@ from aegis.reflection import (
     get_type_info,
 )
 
+from .shadows.compile_document import COMPILATION_RESULTS
+from .shadows.context import LanguageServerContext
 
 Node = TypeVar("Node", bound=AstNode)
 

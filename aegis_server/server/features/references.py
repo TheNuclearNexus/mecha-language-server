@@ -1,13 +1,13 @@
 from pathlib import Path
+
 from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstResourceLocation
 
 from aegis.ast.features import AegisFeatureProviders, ReferencesParams
 
-from ..indexing import AegisProjectIndex, search_scope_for_binding
-
 from .. import AegisServer
+from ..indexing import AegisProjectIndex, search_scope_for_binding
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,

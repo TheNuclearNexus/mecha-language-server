@@ -1,16 +1,18 @@
+from dataclasses import replace
 from functools import partial
 from typing import Callable, TypeVar, cast
-from dataclasses import replace
+
 from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetIdentifier
 from mecha import AstNode, AstResourceLocation, Rule
+from mecha.contrib.nested_location import AstNestedLocation, NestedLocationTransformer
 from mecha.contrib.relative_location import (
     RelativeResourceLocationParser,
     resolve_using_database,
 )
-from mecha.contrib.nested_location import NestedLocationTransformer, AstNestedLocation
 from tokenstream import TokenStream
 
 from aegis.ast.features import attach_feature_provider
+
 from .feature_providers import ResourceLocationFeatureProvider, VariableFeatureProvider
 
 T = TypeVar("T", bound=AstNode)

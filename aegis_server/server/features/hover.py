@@ -2,7 +2,6 @@ from lsprotocol import types as lsp
 
 from aegis.ast.features import AegisFeatureProviders, HoverParams
 
-
 from .. import AegisServer
 from .helpers import (
     fetch_compilation_data,
