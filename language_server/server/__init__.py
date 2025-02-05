@@ -1,8 +1,10 @@
+import asyncio
 import importlib
 import json
 import logging
 import os
 import sys
+import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -54,7 +56,7 @@ class MechaLanguageServer(LanguageServer):
         super().__init__(*args)
         self._instances = {}
         self._index_thread = Thread(
-            target=lambda self: self.scan_functions(), args=[self]
+            target=lambda self, parent: self.scan_functions(parent), args=[self, threading.current_thread()]
         )
         self._index_thread.start()
 
@@ -70,10 +72,10 @@ class MechaLanguageServer(LanguageServer):
                 )
                 break
 
-    def scan_functions(self):
+    def scan_functions(self, parent_thread: Thread):
+        logging.info("Started Indexing Thread")
         try:
-
-            while self._alive:
+            while self._alive and parent_thread.is_alive():
                 for lock, ctx in self._instances.values():
                     if not lock.acquire(blocking=False):
                         continue
@@ -85,6 +87,8 @@ class MechaLanguageServer(LanguageServer):
         except Exception as exc:
             lock.release()
             logging.error(f"Fatal error occured while indexing function!\n{exc}")
+
+        logging.info("Stopped Indexing Thread")
 
     def load_registry(self, minecraft_version: str):
         """Load the game registry from Misode's mcmeta repository"""
@@ -258,3 +262,8 @@ class MechaLanguageServer(LanguageServer):
 
     def _kill(self):
         self._alive = False
+
+    def shutdown(self):
+        self._kill()
+        super().shutdown()
+

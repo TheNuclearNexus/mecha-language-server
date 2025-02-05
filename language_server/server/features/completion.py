@@ -22,7 +22,11 @@ from pygls.workspace import TextDocument
 from tokenstream import InvalidSyntax, UnexpectedEOF, UnexpectedToken
 
 from language_server.server.features.helpers import (
+    get_annotation_description,
+    get_class_description,
+    get_function_description,
     get_node_at_position,
+    get_variable_description,
     node_location_to_range,
 )
 
@@ -33,6 +37,7 @@ from ..shadows.compile_document import CompilationError
 from ..utils.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
+    TypeInfo,
     format_function_hints,
     get_name_of_type,
     get_type_info,
@@ -139,12 +144,11 @@ def get_completions(
             if represents and issubclass(represents, File):
                 file_type = cast(type[NamespaceFile], represents)
 
-
                 path = current_node.get_canonical_value()
 
                 if current_node.is_tag:
                     path = path[1:]
-                    
+
                 project_index = ProjectIndex.get(ctx)
 
                 resolved = get_path(path)
@@ -170,12 +174,13 @@ def get_completions(
                     relative = file_path[1].relative_to(resolved_parent)
 
                     if unresolved[0] is None and unresolved[1].name == "":
-                            new_path = "./" + str(relative)
+                        new_path = "./" + str(relative)
                     else:
                         new_path = str(unresolved_parent / relative)
 
-
-                    insert_text = f"{unresolved[0] + ':' if unresolved[0] else ''}{new_path}"
+                    insert_text = (
+                        f"{unresolved[0] + ':' if unresolved[0] else ''}{new_path}"
+                    )
                     if current_node.is_tag:
                         insert_text = "#" + insert_text
 
@@ -230,33 +235,6 @@ def add_registry_items(
         )
 
 
-def get_doc_string(doc: Any):
-    return "\n---\n" + doc if isinstance(doc, str) else ""
-
-
-def get_variable_description(name: str, value: Any):
-    doc_string = get_doc_string(value.__doc__)
-    return f"```python\n(variable) {name}: {get_name_of_type(type(value))}\n```{doc_string}"
-
-
-def get_class_description(name: str, value: type):
-    doc_string = get_doc_string(value)
-
-    return f"```python\nclass {name}()\n```{doc_string}"
-
-
-def get_function_description(name: str, function: Any):
-    function_info = None
-    if isinstance(function, FunctionInfo):
-        function_info = function
-    else:
-        function_info = FunctionInfo.extract(function)
-
-    doc_string = get_doc_string(function_info.doc)
-
-    return f"```py\n{format_function_hints(name, function_info)}\n```{doc_string}"
-
-
 def get_bolt_completions(
     node: AstNode,
     items: list[lsp.CompletionItem],
@@ -269,7 +247,11 @@ def get_bolt_completions(
     if type_annotation is UNKNOWN_TYPE:
         return
 
-    type_info = get_type_info(type_annotation)
+    type_info = (
+        get_type_info(type_annotation)
+        if not isinstance(type_annotation, TypeInfo)
+        else type_annotation
+    )
 
     for name, type in type_info.fields.items():
         add_variable_completion(items, name, type)
@@ -341,16 +323,22 @@ def add_variable_definition(
 
 
 def add_raw_definition(items: list[lsp.CompletionItem], name: str, value: Any):
-    if inspect.isclass(value):
+    if inspect.isclass(value) or isinstance(value, TypeInfo):
         add_class_completion(items, name, value)
-    elif inspect.isfunction(value) or inspect.isbuiltin(value):
+    elif (
+        inspect.isfunction(value)
+        or inspect.isbuiltin(value)
+        or isinstance(value, FunctionInfo)
+    ):
         add_function_completion(items, name, value)
     else:
         add_variable_completion(items, name, type(value))
 
 
-def add_class_completion(items: list[lsp.CompletionItem], name: str, _type):
-    description = get_class_description(name, _type)
+def add_class_completion(
+    items: list[lsp.CompletionItem], name: str, type_annotation: Any
+):
+    description = get_annotation_description(name, type_annotation)
     documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
     items.append(
@@ -360,8 +348,8 @@ def add_class_completion(items: list[lsp.CompletionItem], name: str, _type):
     )
 
 
-def add_function_completion(items: list[lsp.CompletionItem], name: str, function):
-    description = get_function_description(name, function)
+def add_function_completion(items: list[lsp.CompletionItem], name: str, function: Any):
+    description = get_annotation_description(name, function)
     documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
     items.append(
@@ -371,14 +359,16 @@ def add_function_completion(items: list[lsp.CompletionItem], name: str, function
     )
 
 
-def add_variable_completion(items: list[lsp.CompletionItem], name: str, _type):
+def add_variable_completion(
+    items: list[lsp.CompletionItem], name: str, type_annotation: Any
+):
     kind = (
         lsp.CompletionItemKind.Property
         if not name.isupper()
         else lsp.CompletionItemKind.Constant
     )
 
-    description = get_variable_description(name, _type)
+    description = get_annotation_description(name, type_annotation)
     documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
 
     items.append(lsp.CompletionItem(name, documentation=documentation, kind=kind))

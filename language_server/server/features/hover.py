@@ -1,18 +1,22 @@
-import json
-
 from beet import File
-from lsprotocol import types as lsp
-from mecha import AstNode, AstResourceLocation
-from mecha.contrib.nested_location import (
-    AstNestedLocation,
-    NestedLocationResolver,
-    NestedLocationTransformer,
+from bolt import (
+    AstAttribute,
+    AstCall,
+    AstIdentifier,
+    AstImportedItem,
+    AstTargetIdentifier,
 )
-from mecha.contrib.relative_location import resolve_relative_location
+from lsprotocol import types as lsp
+from mecha import AstResourceLocation
+
+from ..utils.reflection import FunctionInfo, TypeInfo, get_type_info
+
+from ..indexing import get_type_annotation
 
 from .. import MechaLanguageServer
 from .helpers import (
     fetch_compilation_data,
+    get_annotation_description,
     get_node_at_position,
     node_location_to_range,
 )
@@ -30,7 +34,7 @@ def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
 
     node = get_node_at_position(ast, params.position)
     range = node_location_to_range(node)
-      
+
     if DEBUG_AST:
         return lsp.Hover(
             lsp.MarkupContent(
@@ -39,7 +43,7 @@ def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
             ),
             range,
         )
-    
+
     match node:
         case AstResourceLocation():
             represents = node.__dict__.get("represents")
@@ -60,4 +64,26 @@ def get_hover(ls: MechaLanguageServer, params: lsp.HoverParams):
                 ),
                 range,
             )
-  
+
+        case (
+            AstIdentifier() | AstAttribute() | AstTargetIdentifier() | AstImportedItem()
+        ):
+            type_annotation = get_type_annotation(node)
+
+            var_name = (
+                node.value
+                if not isinstance(node, (AstAttribute, AstImportedItem))
+                else node.name
+            )
+
+            if not type_annotation:
+                return lsp.Hover(
+                    lsp.MarkupContent(
+                        lsp.MarkupKind.Markdown,
+                        f"```python\n(variable) {var_name}\n```",
+                    )
+                )
+
+            description = get_annotation_description(var_name, type_annotation)
+
+            return lsp.Hover(lsp.MarkupContent(lsp.MarkupKind.Markdown, description))

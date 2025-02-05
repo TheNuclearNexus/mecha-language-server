@@ -148,7 +148,7 @@ class ErrorAccumulator(MutatingReducer):
 
     @rule(AstError)
     def error(self, error: AstError):
-
+        logging.error(error.error)
         self._errors.append(error.error)
 
         return None
@@ -173,7 +173,6 @@ def parse_function(
 ) -> CompiledDocument:
 
     ast, errors = compile(ctx, resource_location, source_path, file_instance)
-
 
     # # Parse the stream
     mecha = ctx.inject(Mecha)
@@ -214,7 +213,7 @@ def compile(
         file_instance=source_file,
     )
 
-    with use_steps(mecha, [indexer, *mecha.steps]):
+    with use_steps(mecha, [indexer, mecha.lint, mecha.transform]):
         mecha.database.setup_compilation()
 
         # Configure the database to compile the file

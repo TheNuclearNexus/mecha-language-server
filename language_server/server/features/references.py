@@ -3,7 +3,7 @@ from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstResourceLocation
 
-from ..indexing import ProjectIndex
+from ..indexing import ProjectIndex, search_scope_for_binding
 
 from .. import MechaLanguageServer
 from .helpers import (
@@ -11,7 +11,6 @@ from .helpers import (
     get_node_at_position,
     get_representation_file,
     node_location_to_range,
-    search_scope_for_binding,
 )
 
 
@@ -47,7 +46,6 @@ def get_references(ls: MechaLanguageServer, params: lsp.ReferenceParams):
     if isinstance(node, AstIdentifier) or isinstance(node, AstTargetIdentifier):
         var_name = node.value
 
-        binding = search_scope_for_binding(var_name, node, scope)
         if not (result := search_scope_for_binding(var_name, node, scope)):
             return
 

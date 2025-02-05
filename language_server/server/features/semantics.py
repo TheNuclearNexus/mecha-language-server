@@ -41,6 +41,7 @@ from tokenstream import SourceLocation
 
 from language_server.server import MechaLanguageServer
 from language_server.server.features.validate import get_compilation_data
+from ..utils.reflection import FunctionInfo, TypeInfo
 
 from ..indexing import get_type_annotation, set_type_annotation
 from .helpers import offset_location
@@ -216,14 +217,8 @@ class SemanticTokenCollector(Reducer):
                 TOKEN_TYPES["keyword"],
                 0,
             )
-        )
-
-        for i in imports:
-            # logging.debug(f"{i.name}: {i.location}, {i.end_location}")
-            self.nodes.append(
-                (i, TOKEN_TYPES["variable" if i.identifier else "class"], 0)
-            )
-
+        )    
+    
     @rule(AstValue)
     def value(self, value: AstValue):
         if not (annotation := get_type_annotation(value)):
@@ -235,6 +230,10 @@ class SemanticTokenCollector(Reducer):
             )
         elif annotation is bool:
             self.nodes.append((value, TOKEN_TYPES["macro"], 0))
+
+    @rule(AstImportedItem)
+    def imported_item(self, imported_item: AstImportedItem):
+        self.generic_identifier(imported_item.name, imported_item)
 
     @rule(AstAttribute)
     def attribute(self, attribute: AstAttribute):
@@ -251,7 +250,7 @@ class SemanticTokenCollector(Reducer):
 
         set_type_annotation(attribute_location, get_type_annotation(attribute))
 
-        self.generic_identifier(attribute_location)
+        self.generic_identifier(attribute.name, attribute_location)
 
     @rule(AstItemSlot)
     def item_slot(self, item_slot: AstItemSlot):
@@ -287,33 +286,30 @@ class SemanticTokenCollector(Reducer):
         if argument.type_annotation:
             self.nodes.append((argument.type_annotation, TOKEN_TYPES["class"], 0))
 
-    @rule(AstAssignment)
-    def assignment(self, assignment: AstAssignment):
-        self.generic_identifier(assignment.target)
+    # @rule(AstAssignment)
+    # def assignment(self, assignment: AstAssignment):
+    #     self.generic_identifier(assignment.target)
 
-        if assignment.type_annotation != None:
-            self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
+    #     if assignment.type_annotation != None:
+    #         self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
 
-    def generic_identifier(self, identifier: Any):
+    def generic_identifier(self, variable_name: str, identifier: Any):
         annotation = get_type_annotation(identifier)
 
         if annotation is not None and (
-            inspect.isfunction(annotation) or inspect.isbuiltin(annotation)
+            inspect.isfunction(annotation) or inspect.isbuiltin(annotation) or isinstance(annotation, FunctionInfo)
         ):
             self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
-        elif annotation is not None and get_origin(annotation) is type:
+        elif annotation is not None and (get_origin(annotation) is type or isinstance(annotation, TypeInfo)):
             self.nodes.append((identifier, TOKEN_TYPES["class"], 0))
         else:
             kind = TOKEN_TYPES["variable"]
             modifiers = 0
-            if hasattr(identifier, "value"):
-                value = getattr(identifier, "value")
-
-                if isinstance(value, str):
-                    if value.isupper():
-                        modifiers += TOKEN_MODIFIERS["readonly"]
-                    elif value == "self":
-                        kind = TOKEN_TYPES["macro"]
+            
+            if variable_name.isupper():
+                modifiers += TOKEN_MODIFIERS["readonly"]
+            elif variable_name == "self":
+                kind = TOKEN_TYPES["macro"]
 
             self.nodes.append(
                 (
@@ -323,9 +319,9 @@ class SemanticTokenCollector(Reducer):
                 )
             )
 
-    @rule(AstIdentifier)
-    def identifier(self, identifier: AstIdentifier):
-        self.generic_identifier(identifier)
+    @rule(AstIdentifier, AstTargetIdentifier)
+    def identifier(self, identifier: AstIdentifier | AstTargetIdentifier):
+        self.generic_identifier(identifier.value, identifier)
 
     # @rule(AstExpressionUnary)
     # def expression(self, expression: AstExpressionUnary):

@@ -5,6 +5,8 @@ import typing
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, get_origin
 
+from beet import Function
+
 UNKNOWN_TYPE = object()
 TYPE_TO_INFO: dict[type, "TypeInfo"] = {}
 
@@ -57,9 +59,12 @@ class FunctionInfo:
                 doc="Error while extracting signature: " + str(e),
             )
 
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
 
 @dataclass
 class TypeInfo:
+    doc: str|None
     fields: dict[str, Any] = field(default_factory=dict)
     functions: dict[str, FunctionInfo] = field(default_factory=dict)
 
@@ -90,12 +95,16 @@ class TypeInfo:
         else:
             self.fields[field_name] = type(field_value)
 
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
+
 
 def get_type_info(_type: type) -> TypeInfo:
+
     if _type in TYPE_TO_INFO:
         return TYPE_TO_INFO[type]
 
-    info = TypeInfo()
+    info = TypeInfo(_type.__doc__)
 
     # logging.debug("\n\n")
     # logging.debug("-" * 50)
@@ -108,16 +117,25 @@ def get_type_info(_type: type) -> TypeInfo:
     )
 
     if is_dataclass(_type):
+        handled_fields = set()
         for field in fields(_type):
             info.add_member({}, field.name, field.type)
-            # logging.debug(f"{field.name}, {type(field.type)}")
+            handled_fields.add(field.name)
+        for field_name, field_value in inspect.getmembers(_type):
+            if field_name in handled_fields:
+                continue
 
-    for field_name in dir(_type):
-        field_value = getattr(_type, field_name)
-        # logging.debug(f"{field_name}, {field_value}")
-        info.add_member(
-            field_annotations, field_name, field_value, skip_fields=is_dataclass(_type)
-        )
+            # field_value = getattr(_type, field_name)
+            info.add_member(
+                field_annotations, field_name, field_value
+            )
+    else:
+        for field_name, field_value in inspect.getmembers(_type):
+            # field_value = getattr(_type, field_name)
+            # logging.debug(f"{field_name}, {field_value}")
+            info.add_member(
+                field_annotations, field_name, field_value
+            )
 
     # logging.debug("-" * 50)
     # logging.debug("\n\n")
@@ -149,7 +167,7 @@ def get_name_of_type(annotation):
         return annotation.__name__ if hasattr(annotation, "__name__") else annotation
 
 
-def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "def"):
+def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "def", show_return_type: bool = True):
     hint = f"{keyword} {name}("
 
     return_type = signature.return_annotation
@@ -173,6 +191,9 @@ def format_function_hints(name: str, signature: FunctionInfo, keyword: str = "de
 
     hint += ",".join(parameters)
 
-    hint += f"\n) -> {get_name_of_type(return_type)}"
+    hint += f"\n)"
+
+    if show_return_type and signature.return_annotation is not types.NoneType:
+        hint += f" -> {get_name_of_type(return_type)}"
 
     return hint

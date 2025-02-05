@@ -2,13 +2,14 @@ from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstNode
 
+from ..indexing import search_scope_for_binding
+
 from .. import MechaLanguageServer
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
     node_location_to_range,
     offset_location,
-    search_scope_for_binding,
 )
 
 

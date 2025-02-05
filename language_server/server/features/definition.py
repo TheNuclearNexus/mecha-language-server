@@ -1,13 +1,10 @@
-import logging
 from pathlib import Path
-from typing import cast
 
-from beet import NamespaceFile
-from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
+from bolt import AstIdentifier
 from lsprotocol import types as lsp
 from mecha import AstResourceLocation
 
-from ..indexing import ProjectIndex
+from ..indexing import ProjectIndex, search_scope_for_binding
 
 from .. import MechaLanguageServer
 from .helpers import (
@@ -15,11 +12,7 @@ from .helpers import (
     get_node_at_position,
     get_representation_file,
     node_location_to_range,
-    node_start_to_range,
-    search_scope_for_binding,
 )
-from .validate import get_compilation_data
-
 
 def get_definition(ls: MechaLanguageServer, params: lsp.DefinitionParams):
     compiled_doc = fetch_compilation_data(ls, params)

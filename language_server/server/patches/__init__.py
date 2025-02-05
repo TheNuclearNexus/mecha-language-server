@@ -21,7 +21,7 @@ def set_dict(a: T, b: AstNode) -> T:
 
 def parse_relative_path(self: RelativeResourceLocationParser, stream: TokenStream) -> AstResourceLocation:
     node: AstResourceLocation = self.parser(stream)
-    logging.debug(f"\n\n\n\nPARSING LOCATION\n{node}\n\n\n")
+    
     if node.namespace is None and node.path.startswith(("./", "../")):
         unresolved = node.path
         namespace, resolved = resolve_using_database(
@@ -30,7 +30,6 @@ def parse_relative_path(self: RelativeResourceLocationParser, stream: TokenStrea
             location=node.location,
             end_location=node.end_location,
         )
-
 
         node = replace(node, namespace=namespace, path=resolved)
         node.__dict__["unresolved_path"] = unresolved

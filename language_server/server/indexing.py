@@ -1,5 +1,5 @@
 import builtins
-from copy import deepcopy
+from copy import copy, deepcopy
 import inspect
 import logging
 from dataclasses import dataclass
@@ -8,12 +8,14 @@ from pathlib import Path
 import re
 from threading import Lock
 import traceback
+from types import ModuleType
 from typing import (
     Any,
     Callable,
     ClassVar,
     Optional,
     TypeVar,
+    cast,
     get_args,
     get_origin,
 )
@@ -33,13 +35,26 @@ from bolt import (
     AstAssignment,
     AstAttribute,
     AstCall,
+    AstClassName,
     AstDict,
+    AstDocstring,
     AstExpressionBinary,
+    AstFromImport,
+    AstFunctionSignature,
+    AstFunctionSignatureArgument,
+    AstFunctionSignatureVariadicArgument,
+    AstFunctionSignatureVariadicKeywordArgument,
     AstIdentifier,
+    AstImportedItem,
     AstList,
+    AstStatement,
+    AstTargetIdentifier,
     AstTuple,
+    AstTypeDeclaration,
     AstValue,
+    Binding,
     CompiledModule,
+    LexicalScope,
     Module,
     Runtime,
 )
@@ -48,6 +63,7 @@ from mecha import (
     AstBlock,
     AstChildren,
     AstCommand,
+    AstError,
     AstItemStack,
     AstJson,
     AstJsonObject,
@@ -57,7 +73,6 @@ from mecha import (
     AstRoot,
     AstSelectorArgument,
     CompilationError,
-    Dispatcher,
     Mecha,
     MutatingReducer,
     Reducer,
@@ -70,8 +85,17 @@ from mecha.contrib.nested_location import (
 )
 from tokenstream import SourceLocation
 
+
+from .shadows.compile_document import COMPILATION_RESULTS
+
 from .shadows.context import LanguageServerContext
-from .utils.reflection import UNKNOWN_TYPE, FunctionInfo
+from .utils.reflection import (
+    UNKNOWN_TYPE,
+    FunctionInfo,
+    ParameterInfo,
+    TypeInfo,
+    get_type_info,
+)
 
 FilePointer = tuple[SourceLocation, SourceLocation]
 
@@ -156,7 +180,7 @@ class ResourceIndex:
                 definitions.append((path, *location))
 
         return definitions
-    
+
     def get_references(
         self, resource_path: str
     ) -> list[tuple[str, SourceLocation, SourceLocation]]:
@@ -258,6 +282,11 @@ def node_to_types(node: AstNode):
         if annotation is not UNKNOWN_TYPE:
             types.append(annotation)
 
+    if len(types) == 0:
+        return UNKNOWN_TYPE
+    elif len(types) == 1:
+        return types[0]
+
     return reduce(lambda a, b: a | b, types)
 
 
@@ -272,16 +301,29 @@ def expression_to_annotation(expression):
             type_annotation = list
         case AstTuple():
             type_annotation = tuple
+        case AstIdentifier():
+            identifier_type = get_type_annotation(expression)
+            if get_origin(identifier_type) is not type:
+                return UNKNOWN_TYPE
+
+            type_annotation = get_args(identifier_type)[0]
     return type_annotation
+
+
+def are_equal(a: AstNode, b: AstNode) -> bool:
+    # logging.debug(f"{a} == {b}")
+    # logging.debug(f"{a.location} == {b.location}")
+    # logging.debug(f"{a.end_location} == {b.end_location}")
+
+    return a.location == b.location and a.end_location == b.end_location
 
 
 def was_referenced(references: list[AstNode], identifier: AstNode):
     for reference in references:
-        if (
-            reference.location == identifier.location
-            and reference.end_location == identifier.end_location
-        ):
+        if are_equal(identifier, reference):
             return True
+
+    return False
 
 
 def is_builtin(identifier: AstIdentifier):
@@ -296,7 +338,7 @@ def is_builtin(identifier: AstIdentifier):
 
 
 def annotate_types(annotation):
-    if isinstance(annotation, type):
+    if inspect.isclass(annotation):
         return type[annotation]
     elif inspect.isfunction(annotation) or inspect.isbuiltin(annotation):
         return annotation
@@ -304,18 +346,37 @@ def annotate_types(annotation):
         return type(annotation)
 
 
+def search_scope_for_binding(
+    var_name: str, node: AstNode, scope: LexicalScope
+) -> tuple[Binding, LexicalScope] | None:
+    variables = scope.variables
+    if var_name in variables:
+        var_data = variables[var_name]
+
+        for binding in var_data.bindings:
+            if was_referenced(binding.references, node) or are_equal(
+                binding.origin, node
+            ):
+                return (binding, scope)
+
+    for child in scope.children:
+        if binding := search_scope_for_binding(var_name, node, child):
+            return binding
+
+    return None
+
+
 def get_referenced_type(
     runtime: Runtime, module: CompiledModule, identifier: AstIdentifier
 ):
     var_name = identifier.value
-    defined_variables = module.lexical_scope.variables
+    scope = module.lexical_scope
 
-    if variable := defined_variables.get(var_name):
-        for binding in variable.bindings:
-            if was_referenced(binding.references, identifier) and (
-                annotation := get_type_annotation(binding.origin)
-            ):
-                return annotation
+    if binding := search_scope_for_binding(var_name, identifier, scope):
+        # logging.debug(binding)
+        annotation = get_type_annotation(binding[0].origin)
+        # logging.debug(annotation)
+        return annotation
     elif identifier.value in module.globals:
         return annotate_types(runtime.globals[identifier.value])
 
@@ -342,34 +403,65 @@ def set_type_annotation(node: AstNode, value: Any):
 
 @dataclass
 class InitialStep(Reducer):
-    @rule(AstAssignment)
-    def assignment(self, node: AstAssignment):
+    helpers: dict[str, Any] = extra_field(default_factory=dict)
 
-        if node.target is None:
-            return node
+    @rule(AstFromImport)
+    def from_import(self, from_import: AstFromImport):
+        module_path = from_import.arguments[0]
 
-        if node.type_annotation:
-            type_annotation = node_to_types(node.type_annotation)
+        if not isinstance(module_path, AstResourceLocation):
+            return
+
+        if module_path.namespace:
+            if (
+                not (
+                    compilation := COMPILATION_RESULTS.get(
+                        module_path.get_canonical_value()
+                    )
+                )
+                or compilation.compiled_module is None
+            ):
+                return
+
+            scope = compilation.compiled_module.lexical_scope
+            # logging.debug(compilation.compiled_module)
+
+            for argument in from_import.arguments[1:]:
+                if isinstance(argument, AstImportedItem) and (
+                    export := scope.variables.get(argument.name)
+                ):
+                    set_type_annotation(
+                        argument, get_type_annotation(export.bindings[0].origin)
+                    )
         else:
-            expression = node.value
-            type_annotation = get_type_annotation(expression)
+            self.handle_python_module(from_import, module_path)
 
-        if type_annotation is not None:
-            set_type_annotation(node.target, type_annotation)
-        return node
+    def handle_python_module(
+        self, from_import: AstFromImport, module_path: AstResourceLocation
+    ):
+        try:
+            module: ModuleType = self.helpers["import_module"](module_path.get_value())
+        except:
+            logging.error(f"Can't import module {module_path}")
+            return
+
+        for argument in from_import.arguments[1:]:
+            if isinstance(argument, AstImportedItem) and hasattr(module, argument.name):
+                annotation = annotate_types(getattr(module, argument.name))
+                set_type_annotation(argument, annotation)
 
     @rule(AstValue)
     def value(self, value: AstValue):
         if get_type_annotation(value):
             return value
 
-        set_type_annotation(value, type(value.value))
+        set_type_annotation(value, annotate_types(value.value))
 
         return value
 
     @rule(AstResourceLocation)
     def resource_location(self, node: AstResourceLocation):
-        
+
         if isinstance(node, AstNestedLocation):
             node.__dict__["unresolved_path"] = f"~/" + node.path
         else:
@@ -388,6 +480,27 @@ class BindingStep(Reducer):
     module: Optional[CompiledModule] = required_field()
 
     defined_files = []
+
+    @rule(AstAssignment)
+    def assignment(self, node: AstAssignment):
+        if node.target is None:
+            return node
+
+        if node.type_annotation:
+            type_annotation = node_to_types(node.type_annotation)
+        else:
+            expression = node.value
+            type_annotation = get_type_annotation(expression)
+
+        if type_annotation is not None:
+            set_type_annotation(node.target, type_annotation)
+        return node
+
+    @rule(AstTypeDeclaration)
+    def type_declaration(self, node: AstTypeDeclaration):
+        annotation = node_to_types(node.type_annotation)
+
+        set_type_annotation(node.identifier, annotation)
 
     @rule(AstIdentifier)
     def identifier(self, identifier):
@@ -411,10 +524,18 @@ class BindingStep(Reducer):
 
         base = get_type_annotation(attribute.value)
 
-        if base is UNKNOWN_TYPE or not hasattr(base, attribute.name):
+        if base is UNKNOWN_TYPE:
             set_type_annotation(attribute, UNKNOWN_TYPE)
+            return
+
+        info = get_type_info(base) if not isinstance(base, TypeInfo) else base
+
+        if attribute.name in info.fields:
+            set_type_annotation(attribute, info.fields[attribute.name])
+        elif attribute.name in info.functions:
+            set_type_annotation(attribute, info.functions[attribute.name])
         else:
-            set_type_annotation(attribute, getattr(base, attribute.name))
+            set_type_annotation(attribute, UNKNOWN_TYPE)
 
         return attribute
 
@@ -434,12 +555,21 @@ class BindingStep(Reducer):
         # method signature of its constructor
         if get_origin(callable) is type:
             callable = get_args(callable)[0]
-            info = FunctionInfo.extract(callable.__call__)
+            info = FunctionInfo.extract(callable.__init__)
             info.return_annotation = callable
+        elif isinstance(callable, TypeInfo):
+            info = copy(callable.functions.get("__init__")) or FunctionInfo(
+                [("self", ParameterInfo(inspect._empty, inspect._empty))],
+                callable,
+                callable.doc,
+            )
+            info.return_annotation = callable
+        elif isinstance(callable, FunctionInfo):
+            info = callable
         else:
             info = FunctionInfo.extract(callable)
 
-        if info.return_annotation is inspect.Parameter.empty:
+        if info is None or info.return_annotation is inspect.Parameter.empty:
             set_type_annotation(call, UNKNOWN_TYPE)
             return call
 
@@ -470,7 +600,6 @@ class BindingStep(Reducer):
 
                     if file_type is None:
                         continue
-
 
                     # Ensure that unfinished paths are not added to the project index
                     resolved_path = argument.get_canonical_value()
@@ -539,6 +668,148 @@ class BindingStep(Reducer):
             case "predicate":
                 add_representation(value, Predicate)
 
+    def add_field(self, type_info: TypeInfo, node: AstNode):
+        def add_target_identifier(target: AstTargetIdentifier):
+            name = target.value
+            annotation = get_type_annotation(target)
+
+            if name in type_info.fields:
+                type_info.fields[name] = type_info.fields[name] | annotation
+            else:
+                type_info.fields[name] = annotation
+
+        if isinstance(node, AstAssignment) and isinstance(
+            node.target, (AstTargetIdentifier)
+        ):
+            add_target_identifier(node.target)
+
+        elif isinstance(node, AstTypeDeclaration):
+            add_target_identifier(node.identifier)
+
+    @rule(AstCommand, identifier="class:name:bases:body")
+    def command_class_body(self, command: AstCommand):
+        name = cast(AstClassName, command.arguments[0])
+
+        type_info = get_type_annotation(name)
+        if type_info:
+            return
+
+        body = cast(AstRoot, command.arguments[2])
+
+        doc = None
+        if len(body.commands) > 0 and isinstance(body.commands[0], AstDocstring):
+            doc = cast(AstCommand, body.commands[0])
+            value = cast(AstValue, doc.arguments[0])
+
+            doc = value.value
+
+        type_info = TypeInfo(doc)
+
+        for c in body.commands:
+            if isinstance(c, AstError):
+                continue
+
+            if isinstance(c, AstStatement):
+                self.add_field(type_info, c.arguments[0])
+            elif c.identifier == "def:function:body":
+                signature = cast(AstFunctionSignature, c.arguments[0])
+                annotation = get_type_annotation(signature)
+
+                if not isinstance(annotation, FunctionInfo):
+                    continue
+
+                type_info.functions[signature.name] = annotation
+
+        set_type_annotation(name, type_info)
+
+    @rule(AstCommand, identifier="def:function:body")
+    def command_function_body(self, command: AstCommand):
+        signature = cast(AstFunctionSignature, command.arguments[0])
+
+        function_info = get_type_annotation(signature)
+        if not function_info or not isinstance(function_info, FunctionInfo):
+            return
+
+        body = cast(AstRoot, command.arguments[1])
+
+        if len(body.commands) > 0 and isinstance(body.commands[0], AstDocstring):
+            doc = cast(AstCommand, body.commands[0])
+            value = cast(AstValue, doc.arguments[0])
+
+            function_info.doc = value.value
+
+    @rule(AstFunctionSignature)
+    def function_signature(self, signature: AstFunctionSignature):
+        arguments = []
+
+        for argument in signature.arguments:
+
+            if not isinstance(
+                argument,
+                (
+                    AstFunctionSignatureArgument,
+                    AstFunctionSignatureVariadicArgument,
+                    AstFunctionSignatureVariadicKeywordArgument,
+                ),
+            ):
+                continue
+
+            annotation = (
+                node_to_types(argument.type_annotation)
+                if argument.type_annotation
+                else inspect._empty
+            )
+
+            match argument:
+                case AstFunctionSignatureArgument():
+                    position = inspect.Parameter.POSITIONAL_OR_KEYWORD
+                case AstFunctionSignatureVariadicArgument():
+                    position = inspect.Parameter.VAR_POSITIONAL
+                case AstFunctionSignatureVariadicKeywordArgument():
+                    position = inspect.Parameter.VAR_KEYWORD
+                case _:
+                    position = inspect.Parameter.POSITIONAL_ONLY
+
+            arguments.append(
+                inspect.Parameter(
+                    argument.name,
+                    position,
+                    annotation=annotation,
+                )
+            )
+
+        return_type: Any = (
+            node_to_types(signature.return_type_annotation)
+            if signature.return_type_annotation
+            else UNKNOWN_TYPE
+        )
+
+        annotation = FunctionInfo.from_signature(
+            inspect.Signature(arguments, return_annotation=return_type),
+            signature.__dict__.get("documentation"),
+            dict(),
+        )
+
+        set_type_annotation(
+            signature,
+            annotation,
+        )
+
+        # logging.debug("Scanning references")
+        # logging.debug(self.module)
+        if self.module is None:
+            return
+
+        # logging.debug("get scope")
+        if result := search_scope_for_binding(
+            signature.name, signature, self.module.lexical_scope
+        ):
+            # logging.debug(result)
+            for reference in result[0].references:
+                if get_type_annotation(reference) is None:
+                    set_type_annotation(reference, annotation)
+        # logging.debug("done")
+
 
 @dataclass
 class Indexer(MutatingReducer):
@@ -556,7 +827,10 @@ class Indexer(MutatingReducer):
 
         mecha = self.ctx.inject(Mecha)
         runtime = self.ctx.inject(Runtime)
-        module = runtime.modules.get(self.file_instance)
+        module = runtime.modules[self.file_instance]
+        # logging.debug(id(ast))
+        ast = module.ast if module is not None else ast
+        # logging.debug(id(ast))
 
         # A file always defines itself
         source_type = type(self.file_instance)
@@ -569,7 +843,7 @@ class Indexer(MutatingReducer):
         # TODO: See if these steps can be merged into one
 
         # Attaches the type annotations for assignments
-        initial_values = InitialStep()
+        initial_values = InitialStep(helpers=runtime.helpers)
 
         # The binding step is responsible for attaching the majority of type annotations
         bindings = BindingStep(
@@ -602,6 +876,7 @@ class Indexer(MutatingReducer):
 
         for step in steps:
             try:
+                # logging.debug(id(ast))
                 ast = step(ast)
             except CompilationError as e:
                 raise e.__cause__

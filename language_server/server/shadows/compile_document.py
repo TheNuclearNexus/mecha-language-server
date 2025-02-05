@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from beet.core.utils import extra_field
 from bolt import CompiledModule
