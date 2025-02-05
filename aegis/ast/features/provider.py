@@ -1,11 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Generic, TypeVar
-from beet import Context
+
 import lsprotocol.types as lsp
+from beet import Context
 from mecha import AstNode
 
-from ...semantics import TokenType, TokenModifier
-
+from ...semantics import TokenModifier, TokenType
 
 __all__ = [
     "BaseFeatureProvider",

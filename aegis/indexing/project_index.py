@@ -1,11 +1,11 @@
+import re
 from dataclasses import dataclass
 from pathlib import Path
-import re
 from threading import Lock
 from typing import ClassVar
 
 from beet import Context, File, NamespaceFile
-from beet.core.utils import required_field, extra_field
+from beet.core.utils import extra_field, required_field
 from tokenstream import SourceLocation
 
 __all__ = [

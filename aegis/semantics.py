@@ -1,7 +1,6 @@
 
 from typing import Literal, Union
 
-
 TokenModifier = Union[
     Literal["declaration"],
     Literal["definition"],

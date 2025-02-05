@@ -2,12 +2,12 @@ __all__ = ["ResourceLocationFeatureProvider"]
 
 from pathlib import Path
 from typing import cast
+
+import lsprotocol.types as lsp
 from beet import File, NamespaceFile
 from mecha import AstResourceLocation
-import lsprotocol.types as lsp
 
 from ...ast.helpers import node_location_to_range
-
 from ...ast.metadata import ResourceLocationMetadata, retrieve_metadata
 from ...indexing.project_index import AegisProjectIndex
 from .provider import BaseFeatureProvider

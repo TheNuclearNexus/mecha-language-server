@@ -1,7 +1,7 @@
-from copy import copy
 import inspect
 import types
 import typing
+from copy import copy
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, get_args, get_origin
 

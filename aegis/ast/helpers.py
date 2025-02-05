@@ -1,7 +1,8 @@
 from typing import Iterable
+
+import lsprotocol.types as lsp
 from mecha import AstNode
 from tokenstream import SourceLocation
-import lsprotocol.types as lsp
 
 
 def node_location_to_range(node: AstNode | Iterable[SourceLocation]):

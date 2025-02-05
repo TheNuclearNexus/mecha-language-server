@@ -1,10 +1,9 @@
+import lsprotocol.types as lsp
 from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetIdentifier
 
 from ...reflection import get_annotation_description
-
 from ..metadata import VariableMetadata, retrieve_metadata
 from . import BaseFeatureProvider
-import lsprotocol.types as lsp
 
 __all__ = [
     "VariableFeatureProvider"

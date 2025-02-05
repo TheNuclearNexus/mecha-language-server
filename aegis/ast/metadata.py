@@ -1,9 +1,10 @@
-from beet import NamespaceFile
-from mecha import AstNode
-from ..reflection import UNKNOWN_TYPE
-
 from dataclasses import dataclass, field
 from typing import Any, TypeVar
+
+from beet import NamespaceFile
+from mecha import AstNode
+
+from ..reflection import UNKNOWN_TYPE
 
 METADATA_KEY = "aegis_metadata"
 
