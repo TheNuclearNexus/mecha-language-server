@@ -11,3 +11,4 @@ mecha.log
 dist/
 build/
 testing/
+node_modules/

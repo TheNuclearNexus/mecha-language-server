@@ -33,7 +33,12 @@ import {
     URI,
     integer,
 } from "vscode-languageclient/node";
-import { exec, ExecException, execFile, ExecFileException } from "child_process";
+import {
+    exec,
+    ExecException,
+    execFile,
+    ExecFileException,
+} from "child_process";
 import * as JSZip from "jszip";
 
 const MIN_PYTHON = semver.parse("3.10.0");
@@ -136,7 +141,6 @@ export async function activate(context: vscode.ExtensionContext) {
         await executeServerCommand();
     });
 
-
     // Restart the language server if the user switches Python envs...
     context.subscriptions.push(
         python.environments.onDidChangeActiveEnvironmentPath(async () => {
@@ -181,9 +185,7 @@ export function deactivate(): Thenable<void> {
     return stopLangServer();
 }
 
-async function onNotification() {
-    
-}
+async function onNotification() {}
 
 /**
  * Start (or restart) the language server.
@@ -328,12 +330,11 @@ async function runPythonCommand(
     args: string[]
 ): Promise<[ExecFileException | null, string]> {
     return new Promise<[ExecFileException | null, string]>((resolve) => {
-        execFile(pythonCommand, args, {shell: true}, (error, stdout, _) => {
+        execFile(pythonCommand, args, { shell: true }, (error, stdout, _) => {
             resolve([error, stdout]);
         });
     });
 }
-
 
 async function checkForVenv(pythonCommand: string) {
     logger.debug("Checking if python is a venv...");
@@ -375,7 +376,7 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
     try {
         const [error, stdout] = await runPythonCommand(pythonCommand, [
             "-c",
-            '"import beet; print(beet.__version__)"'
+            '"import beet; print(beet.__version__)"',
         ]);
 
         if (error) return false;
@@ -421,16 +422,12 @@ async function installBeet(pythonCommand: string) {
 async function getSitePackages(pythonCommand: string): Promise<string[]> {
     logger.debug("Getting python site packages...");
     try {
-        const json = await new Promise<string>((resolve, reject) => {
-            exec(
-                `${pythonCommand} -c "import site; import json;  print(json.dumps(site.getsitepackages()))"`,
-                (error, stdout) => {
-                    if (error) return reject(error);
+        const [error, json] = await runPythonCommand(pythonCommand, [
+            "-c",
+            '"import site; import json;  print(json.dumps(site.getsitepackages()))"',
+        ]);
 
-                    return resolve(stdout);
-                }
-            );
-        });
+        if (error) throw error;
 
         logger.debug("Received", json);
 
