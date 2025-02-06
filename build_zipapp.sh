@@ -12,5 +12,3 @@ pip install . --target build
 echo "from aegis_server.__main__ import main; main()" > build/__main__.py
 
 python -m zipapp build -o ../aegis-vscode/language_server.pyz
-cd ../aegis-vscode
-node clean_zipapp.js
