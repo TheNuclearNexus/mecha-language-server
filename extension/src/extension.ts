@@ -330,7 +330,7 @@ async function runPythonCommand(
     args: string[]
 ): Promise<[ExecFileException | null, string]> {
     return new Promise<[ExecFileException | null, string]>((resolve) => {
-        execFile(pythonCommand, args, { shell: true }, (error, stdout, _) => {
+        execFile(pythonCommand, args, (error, stdout, _) => {
             resolve([error, stdout]);
         });
     });
