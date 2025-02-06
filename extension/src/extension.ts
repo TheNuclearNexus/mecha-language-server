@@ -379,7 +379,7 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
             '"import beet; print(beet.__version__)"',
         ]);
 
-        if (error) return false;
+        if (error) raise error;
 
         return stdout.match(/([0-9]\.?)+/g) != null;
     } catch (e) {
