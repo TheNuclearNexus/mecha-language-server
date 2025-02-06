@@ -14,7 +14,7 @@
             }
         ],
         [
-          "semantic-release-python",
+          "semantic-release-pypi",
           {
             "srcDir": "../aegis-core",
             "distDir": "../aegis-core/dist",
