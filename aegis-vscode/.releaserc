@@ -14,12 +14,21 @@
             }
         ],
         [
+          "semantic-release-python",
+          {
+            "srcDir": "../aegis-core",
+            "distDir": "../aegis-core/dist",
+            "installDeps": false
+          }
+        ],
+        [
           "@semantic-release/github",
           {
             "assets": [
               {
                 "path": "*.vsix"
-              }
+              },
+              "./aegis-core/pyproject.toml"
             ]
           }
         ]

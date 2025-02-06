@@ -16,7 +16,6 @@ lsprotocol = "^2023.0.1"
 isort = "^6.0.0"
 black = "^25.1.0"
 pytest = "^8.1.1"
-python-semantic-release = "^7.33.0"
 
 [tool.isort]
 profile = "black"
