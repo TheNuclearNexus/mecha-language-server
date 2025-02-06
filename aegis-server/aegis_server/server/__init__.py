@@ -32,7 +32,7 @@ from mecha import DiagnosticErrorSummary, Mecha
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
-from aegis.registry import AegisGameRegistries
+from aegis_core.registry import AegisGameRegistries
 
 from .features.validate import validate_function
 from .shadows.compile_document import COMPILATION_RESULTS
@@ -103,7 +103,7 @@ class AegisServer(LanguageServer):
         if len(minecraft_version) <= 0:
             minecraft_version = LATEST_MINECRAFT_VERSION
 
-        cache_dir = Path("./.mls_cache")
+        cache_dir = Path("./.aegis_cache")
         if not cache_dir.exists():
             os.mkdir(cache_dir)
 
@@ -128,25 +128,26 @@ class AegisServer(LanguageServer):
 
                 return
 
-        with open(file_path) as file:
-            try:
-                registries = json.loads(file.read())
+        try:
+            with open(file_path, "r") as file:
+                try:
+                    registries = json.loads(file.read())
 
-                ctx.inject(AegisGameRegistries).registries = registries
+                    ctx.inject(AegisGameRegistries).registries = registries
 
-            except json.JSONDecodeError as exc:
-                self.show_message(
-                    f"Failed to parse registry for version {minecraft_version}, completions will be disabled\n{exc}",
-                    lsp.MessageType.Error,
-                )
-                os.remove(file_path)
+                except json.JSONDecodeError as exc:
+                    self.show_message(
+                        f"Failed to parse registry for version {minecraft_version}, completions will be disabled\n{exc}",
+                        lsp.MessageType.Error,
+                    )
+                    os.remove(file_path)
 
-            except Exception as exc:
-                self.show_message(
-                    f"An unhandled exception occured loading registry for version {minecraft_version}\n{exc}",
-                    lsp.MessageType.Error,
-                )
-                os.remove(file_path)
+        except Exception as exc:
+            self.show_message(
+                f"An unhandled exception occured loading registry for version {minecraft_version}\n{exc}",
+                lsp.MessageType.Error,
+            )
+            os.remove(file_path)
 
     def create_context(
         self, config: ProjectConfig, config_path: Path

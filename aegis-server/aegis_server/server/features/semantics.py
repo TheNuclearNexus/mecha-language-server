@@ -39,8 +39,8 @@ from mecha import (
 from mecha.contrib.nested_location import AstNestedLocation
 from tokenstream import SourceLocation, set_location
 
-from aegis.reflection import FunctionInfo, TypeInfo
-from aegis.semantics import TokenModifier, TokenType
+from aegis_core.reflection import FunctionInfo, TypeInfo
+from aegis_core.semantics import TokenModifier, TokenType
 
 from ...server import AegisServer
 from ..features.validate import get_compilation_data

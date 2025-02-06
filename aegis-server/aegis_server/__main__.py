@@ -1,9 +1,10 @@
 import argparse
 import logging
 
+from aegis_core.indexing.project_index import AegisProjectIndex
 from lsprotocol import types as lsp
 
-import aegis_server
+from . import __version__
 
 from .server import AegisServer
 from .server.features import hover as hover_feature
@@ -18,11 +19,10 @@ from .server.features.semantics import (
     TOKEN_TYPES,
     semantic_tokens,
 )
-from .server.indexing import AegisProjectIndex
 
 
 def create_server():
-    server = AegisServer("aegis-server", aegis_server.__version__)
+    server = AegisServer("aegis-server", __version__)
 
     @server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls: AegisServer, params: lsp.DidChangeTextDocumentParams):

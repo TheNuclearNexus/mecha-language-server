@@ -2,7 +2,7 @@ from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstNode
 
-from aegis.ast.helpers import node_location_to_range
+from aegis_core.ast.helpers import node_location_to_range
 
 from .. import AegisServer
 from ..indexing import search_scope_for_binding

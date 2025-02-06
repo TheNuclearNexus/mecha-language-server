@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "aegis_core"
+version = "0.0.0"
+description = "A library to manipulate Mecha for language server usage"
+authors = ["TheNuclearNexus <39636175+TheNuclearNexus@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+mecha = "^0.96.0"
+bolt = "^0.49.1"
+lsprotocol = "^2023.0.1"
+
+[tool.poetry.group.dev.dependencies]
+isort = "^6.0.0"
+black = "^25.1.0"
+pytest = "^8.1.1"
+python-semantic-release = "^7.33.0"
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

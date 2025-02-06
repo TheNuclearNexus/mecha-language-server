@@ -76,14 +76,14 @@ from mecha.contrib.nested_location import (
     NestedLocationTransformer,
 )
 
-from aegis.ast.metadata import (
+from aegis_core.ast.metadata import (
     ResourceLocationMetadata,
     VariableMetadata,
     attach_metadata,
     retrieve_metadata,
 )
-from aegis.indexing.project_index import AegisProjectIndex, valid_resource_location
-from aegis.reflection import (
+from aegis_core.indexing.project_index import AegisProjectIndex, valid_resource_location
+from aegis_core.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
     ParameterInfo,

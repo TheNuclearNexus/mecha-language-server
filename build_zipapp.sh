@@ -1,4 +1,6 @@
+set -e
 
+cd aegis-server
 rm -rf build/*
 
 # mkdir build/language_server
@@ -9,6 +11,6 @@ rm -rf build/*
 pip install . --target build
 echo "from aegis_server.__main__ import main; main()" > build/__main__.py
 
-rm -rf build/numpy*
-
-python -m zipapp build -o ./aegis_vscode/language_server.pyz
+python -m zipapp build -o ../aegis-vscode/language_server.pyz
+cd ../aegis-vscode
+node clean_zipapp.js

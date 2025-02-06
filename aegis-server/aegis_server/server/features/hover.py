@@ -1,7 +1,7 @@
 from lsprotocol import types as lsp
 
-from aegis.ast.features import AegisFeatureProviders, HoverParams
-from aegis.ast.helpers import node_location_to_range
+from aegis_core.ast.features import AegisFeatureProviders, HoverParams
+from aegis_core.ast.helpers import node_location_to_range
 
 from .. import AegisServer
 from .helpers import (

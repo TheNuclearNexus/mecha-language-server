@@ -14,9 +14,9 @@ from mecha import (
 from pygls.workspace import TextDocument
 from tokenstream import UnexpectedEOF, UnexpectedToken
 
-from aegis.ast.features import AegisFeatureProviders
-from aegis.ast.features.provider import CompletionParams
-from aegis.reflection import (
+from aegis_core.ast.features import AegisFeatureProviders
+from aegis_core.ast.features.provider import CompletionParams
+from aegis_core.reflection import (
     UNKNOWN_TYPE,
     FunctionInfo,
     TypeInfo,

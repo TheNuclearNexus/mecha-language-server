@@ -8,7 +8,7 @@ import lsprotocol.types as lsp
 from beet import File, NamespaceFile
 from mecha import AstResourceLocation
 
-from aegis.registry import AegisGameRegistries
+from aegis_core.registry import AegisGameRegistries
 
 from ...ast.helpers import node_location_to_range
 from ...ast.metadata import ResourceLocationMetadata, retrieve_metadata

@@ -10,7 +10,7 @@ from mecha.contrib.relative_location import (
 )
 from tokenstream import TokenStream
 
-from aegis.ast.metadata import (
+from aegis_core.ast.metadata import (
     ResourceLocationMetadata,
     attach_metadata,
     retrieve_metadata,

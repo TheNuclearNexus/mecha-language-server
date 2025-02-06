@@ -9,8 +9,8 @@ from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from tokenstream import SourceLocation
 
-from aegis.ast.metadata import ResourceLocationMetadata, retrieve_metadata
-from aegis.reflection import (
+from aegis_core.ast.metadata import ResourceLocationMetadata, retrieve_metadata
+from aegis_core.reflection import (
     FunctionInfo,
     TypeInfo,
     format_function_hints,

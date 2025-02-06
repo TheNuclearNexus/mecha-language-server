@@ -5,45 +5,82 @@ name: Node.js CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
-
+    branches: [main]
 
 jobs:
   build:
     runs-on: macos-latest
+    concurrency: build
     strategy:
-        fail-fast: false
-    
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v4
-      with:
-        python-version: "3.10"
-    - uses: Gr1N/setup-poetry@v8
-    - name: Clone Forks of beet and bolt
-      run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
-    - name: Test LSP starts
-      run: poetry install && poetry run python -m aegis_server --help
-    - name: Shiv language server
-      run: ./build_zipapp.sh
+      fail-fast: false
+    permissions:
+      id-token: write
 
-    - name: Use Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: 20.x
-        cache: 'npm'
-        cache-dependency-path: aegis_vscode/package-lock.json
-    - name: Build VSC Extension
-      run: cd ./aegis_vscode && npm i && npx vsce package
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v4.0.0
-      with:
-        path: 'aegis_vscode/*.vsix'
-        name: extension
-    - name: Semantic Release
-      run: cd ./aegis_vscode && npx semantic-release
-      env:
-        VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
-        GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - uses: Gr1N/setup-poetry@v8
+
+      - name: Clone Forks of beet and bolt
+        run: cd ../ && git clone https://github.com/TheNuclearNexus/bolt  && git clone https://github.com/TheNuclearNexus/mecha && git clone https://github.com/TheNuclearNexus/beet
+
+      - name: Install aegis-core
+        run: cd aegis-core && poetry install
+
+      - name: Install aegis-server
+        run: cd aegis-server && poetry install && poetry run python -m aegis_server --help
+
+      - name: Build aegis-server zipapp
+        run: ./build_zipapp.sh
+
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: 20.x
+          cache: "npm"
+          cache-dependency-path: aegis-vscode/package-lock.json
+
+      - name: Build VSC Extension
+        run: cd ./aegis-vscode && npm i && npx vsce package
+
+      - name: Upload a Build Artifact
+        uses: actions/upload-artifact@v4.0.0
+        with:
+          path: "aegis-vscode/*.vsix"
+          name: extension
+
+      - name: Semantic Release aegis-vscode
+        run: cd ./aegis-vscode && npx semantic-release
+        env:
+          VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Verify Changed files
+        uses: tj-actions/verify-changed-files@v20
+        id: verify-changed-files
+        with:
+          files: |
+            aegis-core
+
+      - name: Action | Semantic Version Release
+        id: release
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        # Adjust tag with desired version if applicable.
+        uses: python-semantic-release/python-semantic-release@v9.18.0
+        with:
+          directory: ./aegis-core
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: "github-actions"
+          git_committer_email: "actions@users.noreply.github.com"
+          
+      - name: Publish | Upload package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.release.outputs.released == 'true'
+        with:
+          packages-dir: ./aegis-core

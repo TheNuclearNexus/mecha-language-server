@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 .vscode/
 .mls_cache/
+.aegis_cache/
 .beet_cache/
 mecha.log
 *.pyz

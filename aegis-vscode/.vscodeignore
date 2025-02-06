@@ -8,6 +8,8 @@ package.json
 package-lock.json
 node_modules/
 .mls_cache/
+.aegis_cache/
 .pytest_cache
+__pycache__/
 *.vsix
 *.log

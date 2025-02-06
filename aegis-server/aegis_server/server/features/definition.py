@@ -4,7 +4,7 @@ from bolt import AstIdentifier
 from lsprotocol import types as lsp
 from mecha import AstResourceLocation
 
-from aegis.ast.features import AegisFeatureProviders, DefinitionParams
+from aegis_core.ast.features import AegisFeatureProviders, DefinitionParams
 
 from .. import AegisServer
 from ..indexing import AegisProjectIndex, search_scope_for_binding
