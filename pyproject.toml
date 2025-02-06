@@ -1,5 +1,10 @@
 [tool.poetry]
-name = "language_server"
+name = "aegis"
+packages = [
+    { include = "aegis_server" },
+    { include = "aegis" }
+]
+
 version = "0.1.0"
 description = "mecha based language server for mcfunction"
 authors = ["TheNuclearNexus <39636175+TheNuclearNexus@users.noreply.github.com>"]
