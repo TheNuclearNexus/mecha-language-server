@@ -1,4 +1,4 @@
-# Mecha Language Server
+# Aegis
 
 <p align="center">
     A language server for projects using the <a href="https://github.com/mcbeet">Beet Ecosystem</a>    

@@ -51,6 +51,7 @@ const MIN_PYTHON = semver.parse("3.10.0");
 
 let client: LanguageClient;
 let clientStarting = false;
+let didClientFail = false
 let python: PythonExtension;
 let logger: vscode.LogOutputChannel;
 
@@ -145,6 +146,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         python.environments.onDidChangeActiveEnvironmentPath(async () => {
             logger.info("python env modified, restarting server...");
+            
             await startLangServer(context);
         })
     );
@@ -162,23 +164,30 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(async (event) => {
+            const fileName = event.document.fileName
+            if (!fileName.match(/beet.(json|toml|ya?ml)/g) && fileName != "pyproject.toml")
+                return
+
+            if (didClientFail)
+                return
+
+            await startLangServer(context)
+        })
+    )
+
     // Start the language server once the user opens the first text document...
     context.subscriptions.push(
-        vscode.workspace.onDidOpenTextDocument(async () => {
-            if (!client) {
-                await startLangServer(context);
-            }
-        })
-    );
+        vscode.workspace.onDidOpenTextDocument(async (e) => {
+            if (!e.fileName.endsWith(".mcfunction") && !e.fileName.endsWith(".bolt"))
+                return
 
-    // ...or notebook.
-    context.subscriptions.push(
-        vscode.workspace.onDidOpenNotebookDocument(async () => {
-            if (!client) {
+            if (!client && !didClientFail) {
                 await startLangServer(context);
             }
         })
-    );
+    )
 }
 
 export function deactivate(): Thenable<void> {
@@ -205,6 +214,9 @@ async function startLangServer(context: vscode.ExtensionContext) {
     if (client) {
         await stopLangServer();
     }
+
+    didClientFail = false
+
     const config = vscode.workspace.getConfiguration("mecha.server");
 
     const cwd = context.extensionPath;
@@ -221,6 +233,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
     const successful = await checkEnviroment(pythonCommand);
     if (!successful) {
         clientStarting = false;
+        didClientFail = true
         return;
     }
 
@@ -331,6 +344,7 @@ async function runPythonCommand(
 ): Promise<[ExecFileException | null, string]> {
     return new Promise<[ExecFileException | null, string]>((resolve) => {
         execFile(pythonCommand, args, (error, stdout, _) => {
+            logger.info(stdout)
             resolve([error, stdout]);
         });
     });
@@ -342,7 +356,7 @@ async function checkForVenv(pythonCommand: string) {
     try {
         const [error, stdout] = await runPythonCommand(pythonCommand, [
             "-c",
-            '"import sys; print(sys.prefix != sys.base_prefix)"',
+            "import sys; print(sys.prefix != sys.base_prefix)",
         ]);
 
         if (error) throw error;
@@ -376,7 +390,7 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
     try {
         const [error, stdout] = await runPythonCommand(pythonCommand, [
             "-c",
-            '"import beet; print(beet.__version__)"',
+            "import beet; print(beet.__version__)",
         ]);
 
         if (error) throw error;
@@ -424,7 +438,7 @@ async function getSitePackages(pythonCommand: string): Promise<string[]> {
     try {
         const [error, json] = await runPythonCommand(pythonCommand, [
             "-c",
-            '"import site; import json;  print(json.dumps(site.getsitepackages()))"',
+            "import site; import json;  print(json.dumps(site.getsitepackages()))",
         ]);
 
         if (error) throw error;
