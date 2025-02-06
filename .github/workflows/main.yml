@@ -17,6 +17,7 @@ jobs:
       fail-fast: false
     permissions:
       id-token: write
+      contents: write
 
     steps:
       - uses: actions/checkout@v2
@@ -78,7 +79,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           git_committer_name: "github-actions"
           git_committer_email: "actions@users.noreply.github.com"
-          
+
       - name: Publish | Upload package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         if: steps.release.outputs.released == 'true'
