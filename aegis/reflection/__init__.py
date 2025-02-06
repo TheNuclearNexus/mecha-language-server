@@ -202,6 +202,7 @@ def format_function_hints(
 def get_doc_string(doc: Any):
     return "\n---\n" + doc if isinstance(doc, str) else ""
 
+
 def get_variable_description(name: str, value: Any):
     if inspect.isclass(value):
         return f"```python\n(variable) {name}: {get_name_of_type(value)}\n```"
@@ -210,7 +211,7 @@ def get_variable_description(name: str, value: Any):
     return f"```python\n(variable) {name}: {get_name_of_type(type(value))}\n```{doc_string}"
 
 
-def get_class_description(name: str, value: type|TypeInfo):
+def get_class_description(name: str, value: type | TypeInfo):
     if not isinstance(value, TypeInfo):
         value = get_type_info(value)
 
@@ -220,9 +221,12 @@ def get_class_description(name: str, value: type|TypeInfo):
         return f"```python\nclass {name}()\n```{doc_string}"
 
     init = copy(init)
-    init.parameters.pop(0)
+
+    if len(init.parameters) > 0:
+        init.parameters.pop(0)
 
     return f"```python\n{format_function_hints(name, init, keyword='class', show_return_type=False)}\n```{doc_string}"
+
 
 def get_function_description(name: str, function: Any):
     function_info = None
@@ -235,15 +239,20 @@ def get_function_description(name: str, function: Any):
 
     return f"```py\n{format_function_hints(name, function_info)}\n```{doc_string}"
 
+
 def get_annotation_description(name: str, type_annotation: Any):
     if get_origin(type_annotation) is type:
         args = get_args(type_annotation)
         description = get_class_description(name, args[0])
     elif isinstance(type_annotation, TypeInfo):
         description = get_class_description(name, type_annotation)
-    elif inspect.isfunction(type_annotation) or inspect.isbuiltin(type_annotation) or isinstance(type_annotation, FunctionInfo):
+    elif (
+        inspect.isfunction(type_annotation)
+        or inspect.isbuiltin(type_annotation)
+        or isinstance(type_annotation, FunctionInfo)
+    ):
         description = get_function_description(name, type_annotation)
     else:
         description = get_variable_description(name, type_annotation)
-        
+
     return description

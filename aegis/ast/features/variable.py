@@ -5,9 +5,8 @@ from ...reflection import get_annotation_description
 from ..metadata import VariableMetadata, retrieve_metadata
 from . import BaseFeatureProvider
 
-__all__ = [
-    "VariableFeatureProvider"
-]
+__all__ = ["VariableFeatureProvider"]
+
 
 class VariableFeatureProvider(
     BaseFeatureProvider[

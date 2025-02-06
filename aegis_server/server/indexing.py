@@ -76,6 +76,12 @@ from mecha.contrib.nested_location import (
     NestedLocationTransformer,
 )
 
+from aegis.ast.metadata import (
+    ResourceLocationMetadata,
+    VariableMetadata,
+    attach_metadata,
+    retrieve_metadata,
+)
 from aegis.indexing.project_index import AegisProjectIndex, valid_resource_location
 from aegis.reflection import (
     UNKNOWN_TYPE,
@@ -89,7 +95,6 @@ from .shadows.compile_document import COMPILATION_RESULTS
 from .shadows.context import LanguageServerContext
 
 Node = TypeVar("Node", bound=AstNode)
-
 
 
 def node_to_types(node: AstNode):
@@ -209,18 +214,34 @@ def get_referenced_type(
 
 
 def add_representation(arg_node: AstNode, type: Any):
-    arg_node.__dict__["represents"] = type
+    metadata = (
+        retrieve_metadata(arg_node, ResourceLocationMetadata)
+        or ResourceLocationMetadata()
+    )
+
+    metadata.represents = type
+
+    attach_metadata(arg_node, metadata)
 
 
 def get_type_annotation(node: AstNode) -> Any:
     if node is None:
         return None
 
-    return node.__dict__.get("type_annotations")
+    metadata = retrieve_metadata(node, VariableMetadata)
+
+    if metadata is None:
+        return None
+
+    return metadata.type_annotation
 
 
 def set_type_annotation(node: AstNode, value: Any):
-    node.__dict__["type_annotations"] = value
+    metadata = retrieve_metadata(node, VariableMetadata) or VariableMetadata()
+
+    metadata.type_annotation = value
+
+    attach_metadata(node, metadata)
 
 
 @dataclass
@@ -283,11 +304,17 @@ class InitialStep(Reducer):
 
     @rule(AstResourceLocation)
     def resource_location(self, node: AstResourceLocation):
+        metadata = (
+            retrieve_metadata(node, ResourceLocationMetadata)
+            or ResourceLocationMetadata()
+        )
 
         if isinstance(node, AstNestedLocation):
-            node.__dict__["unresolved_path"] = f"~/" + node.path
+            metadata.unresolved_path = f"~/" + node.path
         else:
-            node.__dict__.setdefault("unresolved_path", node.get_canonical_value())
+            metadata.unresolved_path = node.get_canonical_value()
+
+        attach_metadata(node, metadata)
 
 
 @dataclass
@@ -548,7 +575,9 @@ class BindingStep(Reducer):
     def command_function_body(self, command: AstCommand):
         signature = cast(AstFunctionSignature, command.arguments[0])
 
-        function_info = get_type_annotation(signature)
+        metadata = retrieve_metadata(signature, VariableMetadata)
+
+        function_info = metadata.type_annotation if metadata else None
         if not function_info or not isinstance(function_info, FunctionInfo):
             return
 
@@ -608,7 +637,7 @@ class BindingStep(Reducer):
 
         annotation = FunctionInfo.from_signature(
             inspect.Signature(arguments, return_annotation=return_type),
-            signature.__dict__.get("documentation"),
+            None,
             dict(),
         )
 

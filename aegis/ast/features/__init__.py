@@ -15,8 +15,7 @@ def get_default_providers() -> dict[type[AstNode], type[BaseFeatureProvider]]:
         AstAttribute: VariableFeatureProvider,
         AstTargetIdentifier: VariableFeatureProvider,
         AstImportedItem: VariableFeatureProvider,
-
-        AstResourceLocation: ResourceLocationFeatureProvider
+        AstResourceLocation: ResourceLocationFeatureProvider,
     }
 
 

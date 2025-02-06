@@ -9,6 +9,7 @@ from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from tokenstream import SourceLocation
 
+from aegis.ast.metadata import ResourceLocationMetadata, retrieve_metadata
 from aegis.reflection import (
     FunctionInfo,
     TypeInfo,
@@ -22,15 +23,19 @@ from ..indexing import AegisProjectIndex
 from .validate import get_compilation_data
 
 
-def get_representation_file(project_index: AegisProjectIndex, node: AstResourceLocation):
-    if not (represents := cast(type[NamespaceFile]|str|None, node.__dict__.get("represents"))):
-            return None
-        
+def get_representation_file(node: AstResourceLocation):
+    metadata = retrieve_metadata(node, ResourceLocationMetadata)
+
+    if not metadata:
+        return None
+
+    if not (represents := cast(type[NamespaceFile] | str | None, metadata.represents)):
+        return None
+
     if isinstance(represents, str):
         return None
-        
-    return represents
 
+    return represents
 
 
 def fetch_compilation_data(ls: AegisServer, params: Any):
@@ -70,6 +75,3 @@ def offset_location(location: SourceLocation, offset):
     return SourceLocation(
         location.pos + offset, location.lineno, location.colno + offset
     )
-
-
-

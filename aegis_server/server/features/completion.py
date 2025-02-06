@@ -7,6 +7,8 @@ from bolt import AstAttribute, Runtime, UndefinedIdentifier, Variable
 from lsprotocol import types as lsp
 from mecha import (
     AstNode,
+    AstOption,
+    BasicLiteralParser,
     Mecha,
 )
 from pygls.workspace import TextDocument
@@ -24,11 +26,65 @@ from aegis.reflection import (
 )
 from aegis_server.server.features.helpers import get_node_at_position
 
-from ...server import GAME_REGISTRIES, AegisServer
+from ...server import AegisServer
 from ..indexing import get_type_annotation
 from ..shadows.compile_document import CompilationError
 from ..shadows.context import LanguageServerContext
 from .validate import get_compilation_data
+
+TOKEN_HINTS: dict[str, list[str]] = {
+    "player_name": ["@s", "@e", "@p", "@a", "@r"],
+    "coordinate": ["~ ~ ~", "^ ^ ^"],
+    "item_slot": [
+        "contents",
+        "container.",
+        "hotbar.",
+        "inventory.",
+        "enderchest.",
+        "villager.",
+        "horse.",
+        "weapon",
+        "weapon.mainhand",
+        "weapon.offhand",
+        "armor.head",
+        "armor.chest",
+        "armor.legs",
+        "armor.feet",
+        "armor.body",
+        "horse.saddle",
+        "horse.chest",
+        "player.cursor",
+        "player.crafting.\1",
+    ],
+}
+
+
+def get_token_options(mecha: Mecha, token_type: str, value: str | None):
+    # Use manually defined hints first
+    if token_type in TOKEN_HINTS:
+        return [lsp.CompletionItem(k) for k in TOKEN_HINTS[token_type]]
+
+    if value == None:
+        if token_type not in mecha.spec.parsers:
+            return []
+
+        parser = mecha.spec.parsers[token_type]
+
+        # logging.debug(f"Pulling value from: {parser}")
+        if isinstance(parser, BasicLiteralParser):
+            node_type = parser.type
+            # logging.debug(f"Node type: {node_type}")
+
+            if issubclass(node_type, AstOption):
+                # logging.debug(f"Options: {node_type.options}")
+                return [
+                    lsp.CompletionItem(o, kind=lsp.CompletionItemKind.Keyword)
+                    for o in node_type.options
+                ]
+    else:
+        return [lsp.CompletionItem(value)]
+
+    return []
 
 
 def completion(ls: AegisServer, params: lsp.CompletionParams):
@@ -63,22 +119,6 @@ def get_completions(
 
         provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
         return provider.completion(CompletionParams(compiled_doc.ctx, node))
-
-
-def add_registry_items(
-    items: list[lsp.CompletionItem],
-    represents: str,
-    prefix: str = "",
-    kind: lsp.CompletionItemKind = lsp.CompletionItemKind.Value,
-):
-    if represents in GAME_REGISTRIES:
-        registry_items = GAME_REGISTRIES[represents]
-        items.extend(
-            [
-                lsp.CompletionItem(prefix + "minecraft:" + k, kind=kind, sort_text=k)
-                for k in registry_items
-            ]
-        )
 
 
 def get_bolt_completions(

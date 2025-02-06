@@ -15,7 +15,7 @@ __all__ = [
     "DefinitionParams",
     "ReferencesParams",
     "RenameParams",
-    "SemanticsParams"
+    "SemanticsParams",
 ]
 
 Node = TypeVar("Node", bound=AstNode)

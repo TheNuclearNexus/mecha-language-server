@@ -1,4 +1,3 @@
-
 from typing import Literal, Union
 
 TokenModifier = Union[

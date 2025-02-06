@@ -15,6 +15,7 @@ COMPILATION_RESULTS: dict[str, "CompiledDocument"] = {}
 
 CompilationError = InvalidSyntax | Diagnostic
 
+
 @dataclass
 class CompiledDocument:
     ctx: LanguageServerContext

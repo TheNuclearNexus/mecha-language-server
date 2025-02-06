@@ -12,7 +12,6 @@ from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
     get_representation_file,
-    node_location_to_range,
 )
 
 

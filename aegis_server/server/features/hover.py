@@ -1,12 +1,12 @@
 from lsprotocol import types as lsp
 
 from aegis.ast.features import AegisFeatureProviders, HoverParams
+from aegis.ast.helpers import node_location_to_range
 
 from .. import AegisServer
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
-    node_location_to_range,
 )
 
 DEBUG_AST = False

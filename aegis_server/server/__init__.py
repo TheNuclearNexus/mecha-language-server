@@ -32,6 +32,8 @@ from mecha import DiagnosticErrorSummary, Mecha
 from pygls.server import LanguageServer
 from pygls.workspace import TextDocument
 
+from aegis.registry import AegisGameRegistries
+
 from .features.validate import validate_function
 from .shadows.compile_document import COMPILATION_RESULTS
 from .shadows.context import LanguageServerContext
@@ -45,7 +47,6 @@ logging.basicConfig(
 )
 
 CONFIG_TYPES = ["beet.json", "beet.yaml", "beet.yml"]
-GAME_REGISTRIES: dict[str, list[str]] = {}
 
 
 class AegisServer(LanguageServer):
@@ -96,9 +97,8 @@ class AegisServer(LanguageServer):
 
         logging.info("Stopped Indexing Thread")
 
-    def load_registry(self, minecraft_version: str):
+    def load_registry(self, ctx: Context, minecraft_version: str):
         """Load the game registry from Misode's mcmeta repository"""
-        global GAME_REGISTRIES
 
         if len(minecraft_version) <= 0:
             minecraft_version = LATEST_MINECRAFT_VERSION
@@ -131,8 +131,8 @@ class AegisServer(LanguageServer):
         with open(file_path) as file:
             try:
                 registries = json.loads(file.read())
-                for k in registries:
-                    GAME_REGISTRIES[k] = registries[k]
+
+                ctx.inject(AegisGameRegistries).registries = registries
 
             except json.JSONDecodeError as exc:
                 self.show_message(
@@ -201,7 +201,8 @@ class AegisServer(LanguageServer):
         sys.path = og_sys_path
         sys.modules = og_modules
 
-        self.load_registry(config.minecraft)
+        if instance:
+            self.load_registry(instance, config.minecraft)
 
         return instance
 

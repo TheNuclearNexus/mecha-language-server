@@ -2,7 +2,6 @@ import logging
 import os
 from contextlib import ExitStack
 from copy import deepcopy
-from typing import Any
 
 from beet import (
     LATEST_MINECRAFT_VERSION,
@@ -13,9 +12,8 @@ from beet import (
 )
 from beet.contrib.load import load
 from beet.core.utils import change_directory, normalize_string
-from mecha import AstResourceLocation, Dispatcher, Mecha, MutatingReducer, Reducer
+from mecha import Mecha
 from pygls.server import LanguageServer
-from tokenstream import TokenStream
 
 from ..indexing import AegisProjectIndex
 from ..patches import apply_patches
@@ -78,7 +76,6 @@ class ProjectBuilderShadow(ProjectBuilder):
                 whitelist=self.config.whitelist,
             )
 
-
             pipelined_plugin: list[PluginSpec] = [self.bootstrap]
 
             excluded_plugins = get_excluded_plugins(ctx)
@@ -107,15 +104,13 @@ class ProjectBuilderShadow(ProjectBuilder):
                 data_pack=self.config.data_pack.load,
             )(ctx)
 
-            project_index = AegisProjectIndex.get(ctx)
+            project_index = ctx.inject(AegisProjectIndex)
 
             mc = ctx.inject(Mecha)
 
             logging.debug("Configuring mecha")
             configure_mecha(mc)
 
-
-            
             for pack in ctx.packs:
                 logging.debug("Enqueuing files in database")
                 # Add file to the compilation database

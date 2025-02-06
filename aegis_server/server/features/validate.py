@@ -80,7 +80,7 @@ def validate_function(
             ctx, location, None, [], None, None
         )
         return []
-    
+
     compiled_doc = parse_function(
         ctx, location, text_doc.path, type(file)(text_doc.source, text_doc.path)
     )
@@ -192,12 +192,14 @@ def parse_function(
         dependents=set(),
     )
 
+
 @contextmanager
 def use_steps(mecha: Mecha, steps):
-    initial_steps = mecha.steps 
+    initial_steps = mecha.steps
     mecha.steps = steps
-    yield 
+    yield
     mecha.steps = initial_steps
+
 
 def compile(
     ctx: LanguageServerContext,
@@ -218,7 +220,9 @@ def compile(
     with use_steps(mecha, [indexer, mecha.lint, mecha.transform]):
 
         # Configure the database to compile the file
-        compiled_unit = CompilationUnit(resource_location=resource_location, pack=ctx.data)
+        compiled_unit = CompilationUnit(
+            resource_location=resource_location, pack=ctx.data
+        )
         mecha.database[source_file] = compiled_unit
         mecha.database.enqueue(source_file)
 
@@ -280,22 +284,19 @@ def compile(
                     logging.error(tb)
 
                     if Path(tb.filename) == Path(source_path):
-                        diagnostics.append(Diagnostic(
-                            message = str(cause),
-                            level="error",
-                            location=SourceLocation(
-                                0,
-                                tb.lineno or 0,
-                                tb.colno or 0
-                            ),
-                            end_location=SourceLocation(
-                                0,
-                                tb.end_lineno or 0,
-                                tb.end_colno or 0
+                        diagnostics.append(
+                            Diagnostic(
+                                message=str(cause),
+                                level="error",
+                                location=SourceLocation(
+                                    0, tb.lineno or 0, tb.colno or 0
+                                ),
+                                end_location=SourceLocation(
+                                    0, tb.end_lineno or 0, tb.end_colno or 0
+                                ),
                             )
-                        ))
+                        )
 
                     logging.error("\n".join(traceback.format_tb(cause.__traceback__)))
-                    
 
     return indexer.output_ast, diagnostics

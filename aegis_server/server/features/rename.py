@@ -2,12 +2,13 @@ from bolt import AstIdentifier, AstTargetIdentifier
 from lsprotocol import types as lsp
 from mecha import AstNode
 
+from aegis.ast.helpers import node_location_to_range
+
 from .. import AegisServer
 from ..indexing import search_scope_for_binding
 from .helpers import (
     fetch_compilation_data,
     get_node_at_position,
-    node_location_to_range,
     offset_location,
 )
 

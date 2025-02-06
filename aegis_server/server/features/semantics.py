@@ -181,8 +181,8 @@ class SemanticTokenCollector(Reducer):
                 TOKEN_TYPES["keyword"],
                 0,
             )
-        )    
-    
+        )
+
     @rule(AstValue)
     def value(self, value: AstValue):
         if not (annotation := get_type_annotation(value)):
@@ -261,15 +261,19 @@ class SemanticTokenCollector(Reducer):
         annotation = get_type_annotation(identifier)
 
         if annotation is not None and (
-            inspect.isfunction(annotation) or inspect.isbuiltin(annotation) or isinstance(annotation, FunctionInfo)
+            inspect.isfunction(annotation)
+            or inspect.isbuiltin(annotation)
+            or isinstance(annotation, FunctionInfo)
         ):
             self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
-        elif annotation is not None and (get_origin(annotation) is type or isinstance(annotation, TypeInfo)):
+        elif annotation is not None and (
+            get_origin(annotation) is type or isinstance(annotation, TypeInfo)
+        ):
             self.nodes.append((identifier, TOKEN_TYPES["class"], 0))
         else:
             kind = TOKEN_TYPES["variable"]
             modifiers = 0
-            
+
             if variable_name.isupper():
                 modifiers += TOKEN_MODIFIERS["readonly"]
             elif variable_name == "self":

@@ -75,7 +75,9 @@ def attach_metadata(node: AstNode, metadata: BaseMetadata):
     """
     node.__dict__[METADATA_KEY] = metadata
 
+
 T = TypeVar("T")
+
 
 def retrieve_metadata(
     node: AstNode, type: tuple[type[T]] | type[T] = BaseMetadata

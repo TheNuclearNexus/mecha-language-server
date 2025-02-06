@@ -2,7 +2,6 @@ from dataclasses import replace
 from functools import partial
 from typing import Callable, TypeVar, cast
 
-from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetIdentifier
 from mecha import AstNode, AstResourceLocation, Rule
 from mecha.contrib.nested_location import AstNestedLocation, NestedLocationTransformer
 from mecha.contrib.relative_location import (
@@ -11,21 +10,32 @@ from mecha.contrib.relative_location import (
 )
 from tokenstream import TokenStream
 
-from aegis.ast.features import attach_feature_provider
-
-from .feature_providers import ResourceLocationFeatureProvider, VariableFeatureProvider
+from aegis.ast.metadata import (
+    ResourceLocationMetadata,
+    attach_metadata,
+    retrieve_metadata,
+)
 
 T = TypeVar("T", bound=AstNode)
 
+
 def set_dict(a: T, b: AstNode) -> T:
-    a.__dict__["unresolved_path"] = b.__dict__.get("unresolved_path")
+    if metadata := retrieve_metadata(b):
+        attach_metadata(a, metadata)
 
     return a
 
 
-def parse_relative_path(self: RelativeResourceLocationParser, stream: TokenStream) -> AstResourceLocation:
+def parse_relative_path(
+    self: RelativeResourceLocationParser, stream: TokenStream
+) -> AstResourceLocation:
     node: AstResourceLocation = self.parser(stream)
-    
+    metadata = (
+        retrieve_metadata(node, ResourceLocationMetadata) or ResourceLocationMetadata()
+    )
+
+    attach_metadata(node, metadata)
+
     if node.namespace is None and node.path.startswith(("./", "../")):
         unresolved = node.path
         namespace, resolved = resolve_using_database(
@@ -36,9 +46,10 @@ def parse_relative_path(self: RelativeResourceLocationParser, stream: TokenStrea
         )
 
         node = replace(node, namespace=namespace, path=resolved)
-        node.__dict__["unresolved_path"] = unresolved
+
+        metadata.unresolved_path = unresolved
     else:
-        node.__dict__["unresolved_path"] = node.get_canonical_value()
+        metadata.unresolved_path = node.get_canonical_value()
     return node
 
 
@@ -48,7 +59,7 @@ def wrap_nested_location(
     ],
     self: NestedLocationTransformer,
     node: AstNestedLocation,
-):    
+):
     new_node = original_rule(self, node)
     return set_dict(new_node, node)
 
@@ -56,11 +67,6 @@ def wrap_nested_location(
 def apply_patches():
     RelativeResourceLocationParser.__call__ = parse_relative_path
     nested_location_rule = cast(Rule, NestedLocationTransformer.nested_location)
-    nested_location_rule.callback = partial(wrap_nested_location, nested_location_rule.callback)
-
-    attach_feature_provider(AstIdentifier, VariableFeatureProvider)
-    attach_feature_provider(AstTargetIdentifier, VariableFeatureProvider)
-    attach_feature_provider(AstAttribute, VariableFeatureProvider)
-    attach_feature_provider(AstImportedItem, VariableFeatureProvider)
-
-    attach_feature_provider(AstResourceLocation, ResourceLocationFeatureProvider)
+    nested_location_rule.callback = partial(
+        wrap_nested_location, nested_location_rule.callback
+    )

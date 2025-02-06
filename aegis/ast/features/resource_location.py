@@ -1,5 +1,6 @@
 __all__ = ["ResourceLocationFeatureProvider"]
 
+import logging
 from pathlib import Path
 from typing import cast
 
@@ -7,10 +8,29 @@ import lsprotocol.types as lsp
 from beet import File, NamespaceFile
 from mecha import AstResourceLocation
 
+from aegis.registry import AegisGameRegistries
+
 from ...ast.helpers import node_location_to_range
 from ...ast.metadata import ResourceLocationMetadata, retrieve_metadata
 from ...indexing.project_index import AegisProjectIndex
 from .provider import BaseFeatureProvider
+
+
+def add_registry_items(
+    registries: AegisGameRegistries,
+    represents: str,
+    prefix: str = "",
+    kind: lsp.CompletionItemKind = lsp.CompletionItemKind.Value,
+):
+    if represents in registries:
+        registry_items = registries[represents]
+
+        return [
+            lsp.CompletionItem(prefix + "minecraft:" + k, kind=kind, sort_text=k)
+            for k in registry_items
+        ]
+
+    return []
 
 
 def get_path(path: str) -> tuple[str | None, Path]:
@@ -19,6 +39,7 @@ def get_path(path: str) -> tuple[str | None, Path]:
         return (None, Path(segments[0]))
     else:
         return (segments[0], Path(segments[1]))
+
 
 class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
     @classmethod
@@ -52,7 +73,10 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
 
         metadata = retrieve_metadata(node, ResourceLocationMetadata)
 
-        if not metadata or metadata.represents is not type[NamespaceFile]:
+        if not metadata or not metadata.represents:
+            return
+
+        if isinstance(metadata.represents, str):
             return
 
         path = node.get_canonical_value()
@@ -75,7 +99,10 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
 
         metadata = retrieve_metadata(node, ResourceLocationMetadata)
 
-        if not metadata or metadata.represents is not type[NamespaceFile]:
+        if not metadata or not metadata.represents:
+            return
+
+        if isinstance(metadata.represents, str):
             return
 
         path = node.get_canonical_value()
@@ -156,11 +183,17 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
                 return items
 
         elif isinstance(represents, str):
+            registries = params.ctx.inject(AegisGameRegistries)
             items = []
 
-            add_registry_items(items, represents)
-            add_registry_items(
-                items, "tag/" + represents, "#", lsp.CompletionItemKind.Constant
+            items.extend(add_registry_items(registries, represents))
+            items.extend(
+                add_registry_items(
+                    registries,
+                    "tag/" + represents,
+                    "#",
+                    lsp.CompletionItemKind.Constant,
+                )
             )
 
             return items

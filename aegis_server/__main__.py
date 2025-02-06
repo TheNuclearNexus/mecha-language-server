@@ -44,9 +44,7 @@ def create_server():
         ls.setup_workspaces()
 
     @server.feature(lsp.WORKSPACE_DID_CHANGE_WORKSPACE_FOLDERS)
-    def folders_changed(
-        ls: AegisServer, params: lsp.DidChangeWorkspaceFoldersParams
-    ):
+    def folders_changed(ls: AegisServer, params: lsp.DidChangeWorkspaceFoldersParams):
         ls.setup_workspaces()
 
     @server.feature(
@@ -77,13 +75,13 @@ def create_server():
 
     @server.command("mecha.server.dumpIndices")
     def dump(ls: AegisServer, *args):
-        ls.show_message_log(AegisProjectIndex.dump())
+        for _, i in ls._instances.values():
+            index = i.inject(AegisProjectIndex)
+            ls.show_message_log(index.dump())
 
     @server.command("mecha.server.toggleASTDebug")
     def toggle_ast_debug(ls: AegisServer, *args):
-        hover_feature.DEBUG_AST = (
-            not hover_feature.DEBUG_AST
-        )
+        hover_feature.DEBUG_AST = not hover_feature.DEBUG_AST
 
     return server
 
