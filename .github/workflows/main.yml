@@ -34,7 +34,7 @@ jobs:
       with:
         node-version: 20.x
         cache: 'npm'
-        cache-dependency-path: extension/package-lock.json
+        cache-dependency-path: aegis_vscode/package-lock.json
     - name: Build VSC Extension
       run: cd ./aegis_vscode && npm i && npx vsce package
     - name: Upload a Build Artifact
