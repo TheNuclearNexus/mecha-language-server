@@ -11,4 +11,4 @@ echo "from aegis_server.__main__ import main; main()" > build/__main__.py
 
 rm -rf build/numpy*
 
-python -m zipapp build -o ./extension/language_server.pyz
+python -m zipapp build -o ./aegis_vscode/language_server.pyz
