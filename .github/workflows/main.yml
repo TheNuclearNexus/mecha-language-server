@@ -36,14 +36,14 @@ jobs:
         cache: 'npm'
         cache-dependency-path: extension/package-lock.json
     - name: Build VSC Extension
-      run: cd ./extension && npm i && npx vsce package
+      run: cd ./aegis_vscode && npm i && npx vsce package
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v4.0.0
       with:
-        path: 'extension/*.vsix'
+        path: 'aegis_vscode/*.vsix'
         name: extension
     - name: Semantic Release
-      run: cd ./extension && npx semantic-release
+      run: cd ./aegis_vscode && npx semantic-release
       env:
         VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
         GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
