@@ -7,7 +7,7 @@ rm -rf build/*
 
 
 pip install . --target build
-echo "from language_server.__main__ import main; main()" > build/__main__.py
+echo "from aegis_server.__main__ import main; main()" > build/__main__.py
 
 rm -rf build/numpy*
 
