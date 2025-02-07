@@ -214,10 +214,10 @@ def get_referenced_type(
 
 
 def add_representation(arg_node: AstNode, type: Any):
-    metadata = (
-        retrieve_metadata(arg_node, ResourceLocationMetadata)
-        or ResourceLocationMetadata()
-    )
+    metadata = retrieve_metadata(arg_node, ResourceLocationMetadata)
+
+    if metadata is None:
+        metadata = ResourceLocationMetadata()
 
     metadata.represents = type
 
@@ -304,18 +304,16 @@ class InitialStep(Reducer):
 
     @rule(AstResourceLocation)
     def resource_location(self, node: AstResourceLocation):
-        metadata = (
-            retrieve_metadata(node, ResourceLocationMetadata)
-            or ResourceLocationMetadata()
-        )
 
         if isinstance(node, AstNestedLocation):
+            metadata = (
+                retrieve_metadata(node, ResourceLocationMetadata)
+                or ResourceLocationMetadata()
+            )
+
             metadata.unresolved_path = f"~/" + node.path
-        else:
-            metadata.unresolved_path = node.get_canonical_value()
 
-        attach_metadata(node, metadata)
-
+            attach_metadata(node, metadata)
 
 @dataclass
 class BindingStep(Reducer):

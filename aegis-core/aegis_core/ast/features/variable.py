@@ -1,5 +1,5 @@
 import lsprotocol.types as lsp
-from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetIdentifier
+from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetAttribute, AstTargetIdentifier
 
 from ...reflection import get_annotation_description
 from ..metadata import VariableMetadata, retrieve_metadata
@@ -10,7 +10,7 @@ __all__ = ["VariableFeatureProvider"]
 
 class VariableFeatureProvider(
     BaseFeatureProvider[
-        AstIdentifier | AstAttribute | AstTargetIdentifier | AstImportedItem
+        AstIdentifier | AstAttribute | AstTargetAttribute | AstTargetIdentifier | AstImportedItem
     ]
 ):
     @classmethod
@@ -21,7 +21,7 @@ class VariableFeatureProvider(
         metadata = retrieve_metadata(node, VariableMetadata)
         name = (
             node.value
-            if not isinstance(node, (AstAttribute, AstImportedItem))
+            if not isinstance(node, (AstAttribute, AstTargetAttribute, AstImportedItem))
             else node.name
         )
 

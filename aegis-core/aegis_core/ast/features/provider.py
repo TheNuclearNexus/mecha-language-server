@@ -57,7 +57,7 @@ class BaseFeatureProvider(Generic[Node]):
     @classmethod
     def completion(
         cls, params: CompletionParams[Node]
-    ) -> list[lsp.CompletionItem] | None:
+    ) -> lsp.CompletionList | None:
         return None
 
     @classmethod

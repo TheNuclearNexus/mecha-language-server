@@ -18,7 +18,6 @@
  * ----------------------------------------------------------------------- */
 "use strict";
 
-import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 import * as semver from "semver";
@@ -30,15 +29,9 @@ import {
     LanguageClientOptions,
     ServerOptions,
     State,
-    URI,
     integer,
 } from "vscode-languageclient/node";
-import {
-    exec,
-    ExecException,
-    execFile,
-    ExecFileException,
-} from "child_process";
+import { execFile, ExecFileException } from "child_process";
 import * as JSZip from "jszip";
 
 const MIN_PYTHON = semver.parse("3.10.0");
@@ -51,7 +44,7 @@ const MIN_PYTHON = semver.parse("3.10.0");
 
 let client: LanguageClient;
 let clientStarting = false;
-let didClientFail = false
+let didClientFail = false;
 let python: PythonExtension;
 let logger: vscode.LogOutputChannel;
 
@@ -146,7 +139,7 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         python.environments.onDidChangeActiveEnvironmentPath(async () => {
             logger.info("python env modified, restarting server...");
-            
+
             await startLangServer(context);
         })
     );
@@ -166,28 +159,39 @@ export async function activate(context: vscode.ExtensionContext) {
 
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(async (event) => {
-            const fileName = event.document.fileName
-            if (!fileName.match(/beet.(json|toml|ya?ml)/g) && fileName != "pyproject.toml")
-                return
+            const fileName = event.document.fileName;
+            if (
+                !fileName.match(/beet.(json|toml|ya?ml)/g) &&
+                fileName != "pyproject.toml"
+            )
+                return;
 
-            if (didClientFail)
-                return
+            if (didClientFail) return;
+            logger.info("Config modified, restarting server");
 
-            await startLangServer(context)
+            await startLangServer(context);
         })
-    )
+    );
 
     // Start the language server once the user opens the first text document...
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(async (e) => {
-            if (!e.fileName.endsWith(".mcfunction") && !e.fileName.endsWith(".bolt"))
-                return
+            if (
+                (
+                    await vscode.workspace.findFiles(
+                        "**/*.{mcfunction,bolt}",
+                        null,
+                        1
+                    )
+                ).length == 0
+            )
+                return;
 
             if (!client && !didClientFail) {
                 await startLangServer(context);
             }
         })
-    )
+    );
 }
 
 export function deactivate(): Thenable<void> {
@@ -215,7 +219,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
         await stopLangServer();
     }
 
-    didClientFail = false
+    didClientFail = false;
 
     const config = vscode.workspace.getConfiguration("mecha.server");
 
@@ -233,7 +237,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
     const successful = await checkEnviroment(pythonCommand);
     if (!successful) {
         clientStarting = false;
-        didClientFail = true
+        didClientFail = true;
         return;
     }
 
@@ -250,19 +254,9 @@ async function startLangServer(context: vscode.ExtensionContext) {
     const serverOptions: ServerOptions =
         process.env.DEV == "true"
             ? {
-                  command: pythonCommand[0],
-                  args: [
-                      "-m",
-                      "poetry",
-                      "run",
-                      "python",
-                      "-m",
-                      serverPath,
-                      "--debug_ast",
-                      "true",
-                      ...args,
-                  ],
-                  options: { cwd },
+                  command: process.env.PYTHON,
+                  args: ["-m", serverPath, "--debug_ast", "true", ...args],
+                  options: { cwd: cwd },
               }
             : {
                   command: pythonCommand[0],
@@ -344,7 +338,7 @@ async function runPythonCommand(
 ): Promise<[ExecFileException | null, string]> {
     return new Promise<[ExecFileException | null, string]>((resolve) => {
         execFile(pythonCommand, args, (error, stdout, _) => {
-            logger.info(stdout)
+            logger.info(stdout);
             resolve([error, stdout]);
         });
     });

@@ -92,22 +92,22 @@ def completion(ls: AegisServer, params: lsp.CompletionParams):
 
     with ls.context(text_doc) as ctx:
         if ctx is None:
-            items = []
+            items = None
         else:
             items = get_completions(ctx, params.position, text_doc)
 
-        return lsp.CompletionList(False, items or [])
+        return items
 
 
 def get_completions(
     ctx: LanguageServerContext,
     pos: lsp.Position,
     text_doc: TextDocument,
-) -> list[lsp.CompletionItem] | None:
+) -> lsp.CompletionList | None:
     mecha = ctx.inject(Mecha)
 
     if not (compiled_doc := get_compilation_data(ctx, text_doc)):
-        return []
+        return None
 
     ast = compiled_doc.ast
     diagnostics = compiled_doc.diagnostics
@@ -190,7 +190,7 @@ def get_diag_completions(
                 add_raw_definition(items, name, getattr(builtins, name))
 
             break
-    return items
+    return lsp.CompletionList(False, items)
 
 
 def add_variable_definition(

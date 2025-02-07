@@ -1,5 +1,6 @@
 from dataclasses import replace
 from functools import partial
+import logging
 from typing import Callable, TypeVar, cast
 
 from mecha import AstNode, AstResourceLocation, Rule
@@ -34,7 +35,6 @@ def parse_relative_path(
         retrieve_metadata(node, ResourceLocationMetadata) or ResourceLocationMetadata()
     )
 
-    attach_metadata(node, metadata)
 
     if node.namespace is None and node.path.startswith(("./", "../")):
         unresolved = node.path
@@ -50,6 +50,9 @@ def parse_relative_path(
         metadata.unresolved_path = unresolved
     else:
         metadata.unresolved_path = node.get_canonical_value()
+
+    attach_metadata(node, metadata)
+
     return node
 
 

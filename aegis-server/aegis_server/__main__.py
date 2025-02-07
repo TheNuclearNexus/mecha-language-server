@@ -72,7 +72,7 @@ def create_server():
     @server.feature(lsp.TEXT_DOCUMENT_RENAME)
     def rename(ls: AegisServer, params: lsp.RenameParams):
         return rename_variable(ls, params)
-
+    
     @server.command("mecha.server.dumpIndices")
     def dump(ls: AegisServer, *args):
         for _, i in ls._instances.values():

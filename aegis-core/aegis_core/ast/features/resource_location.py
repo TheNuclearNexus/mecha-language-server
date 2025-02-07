@@ -1,7 +1,9 @@
 __all__ = ["ResourceLocationFeatureProvider"]
 
 import logging
+import os
 from pathlib import Path
+import re
 from typing import cast
 
 import lsprotocol.types as lsp
@@ -120,13 +122,12 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
 
         metadata = retrieve_metadata(node, ResourceLocationMetadata)
 
-        if not metadata or metadata.represents is not type[NamespaceFile]:
+        if not metadata or not metadata.represents:
             return
 
         represents = metadata.represents
 
-        if represents is type[NamespaceFile]:
-            file_type = cast(type[NamespaceFile], represents)
+        if not isinstance(represents, str):
 
             path = node.get_canonical_value()
 
@@ -135,27 +136,38 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
 
             resolved = get_path(path)
 
-            unresolved = get_path(metadata.unresolved_path or path)
+            if not metadata.unresolved_path:
+                return
 
-            if unresolved[1].name == "~":
+            unresolved = get_path(metadata.unresolved_path)
+
+            if unresolved[1].name == "~" or metadata.unresolved_path.endswith("/"):
                 resolved_parent = resolved[1]
                 unresolved_parent = unresolved[1]
             else:
                 resolved_parent = resolved[1].parent
                 unresolved_parent = unresolved[1].parent
 
+            logging.debug(f"{resolved[0]}:{resolved_parent}, {unresolved[0]}:{unresolved_parent}")
+
             items = []
 
-            for file in project_index[file_type]:
+            for file in project_index[represents]:
                 file_path = get_path(file)
+                logging.debug(file_path)
 
                 if not (
                     file_path[0] == resolved[0]
-                    and file_path[1].is_relative_to(resolved_parent)
                 ):
                     continue
+                
+                if unresolved[0]:
+                    if not file_path[1].is_relative_to(resolved_parent):
+                        continue
 
-                relative = file_path[1].relative_to(resolved_parent)
+                    relative = file_path[1].relative_to(resolved_parent)
+                else:
+                    relative = os.path.relpath(file_path[1], resolved_parent)
 
                 if unresolved[0] is None and unresolved[1].name == "":
                     new_path = "./" + str(relative)
@@ -168,10 +180,13 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
                 if node.is_tag:
                     insert_text = "#" + insert_text
 
+                height_above = len(re.compile(r"\.\./").findall(str(relative)))
+
                 items.append(
                     lsp.CompletionItem(
                         label=insert_text,
                         documentation=file,
+                        sort_text=str(height_above),
                         text_edit=lsp.InsertReplaceEdit(
                             insert_text,
                             node_location_to_range(node),
@@ -180,9 +195,9 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
                     )
                 )
 
-                return items
+            return lsp.CompletionList(False, items)
 
-        elif isinstance(represents, str):
+        else:
             registries = params.ctx.inject(AegisGameRegistries)
             items = []
 
@@ -196,4 +211,4 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
                 )
             )
 
-            return items
+            return lsp.CompletionList(False, items)

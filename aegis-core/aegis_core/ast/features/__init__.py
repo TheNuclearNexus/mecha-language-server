@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from beet import Context
-from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetIdentifier
+from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetAttribute, AstTargetIdentifier
 from mecha import AstNode, AstResourceLocation
 
 from .provider import *
@@ -13,6 +13,7 @@ def get_default_providers() -> dict[type[AstNode], type[BaseFeatureProvider]]:
     return {
         AstIdentifier: VariableFeatureProvider,
         AstAttribute: VariableFeatureProvider,
+        AstTargetAttribute: VariableFeatureProvider,
         AstTargetIdentifier: VariableFeatureProvider,
         AstImportedItem: VariableFeatureProvider,
         AstResourceLocation: ResourceLocationFeatureProvider,
