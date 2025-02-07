@@ -47,7 +47,7 @@ T = TypeVar("T", bound=AstNode)
 
 
 def get_compilation_data(ctx: LanguageServerContext, text_doc: TextDocument):
-    resource = ctx.path_to_resource.get(text_doc.path)
+    resource = ctx.path_to_resource.get(os.path.normcase(os.path.normpath(text_doc.path)))
 
     if resource and resource[0] in COMPILATION_RESULTS:
         return COMPILATION_RESULTS[resource[0]]
