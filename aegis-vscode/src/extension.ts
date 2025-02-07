@@ -616,6 +616,12 @@ async function getPythonInterpreter(
     }
 
     const v = activeEnv.version;
+
+    if (v.major == -1) {
+        logger.error(`Could not resolve python version!`);
+        return;
+    }
+
     const pythonVersion = semver.parse(`${v.major}.${v.minor}.${v.micro}`);
 
     // Check to see if the environment satisfies the min Python version.
