@@ -3,6 +3,7 @@ import os
 from contextlib import ExitStack
 from copy import deepcopy
 
+from aegis_server.providers import register_providers
 from beet import (
     LATEST_MINECRAFT_VERSION,
     Context,
@@ -89,6 +90,10 @@ class ProjectBuilderShadow(ProjectBuilder):
 
                 pipelined_plugin.append(item)
 
+
+            logging.debug("Configuring Context")
+            configure_ctx(ctx)
+
             with change_directory(tmpdir):
                 for plugin in pipelined_plugin:
                     logging.debug(f"Running pipeline {plugin}")
@@ -107,9 +112,6 @@ class ProjectBuilderShadow(ProjectBuilder):
             project_index = ctx.inject(AegisProjectIndex)
 
             mc = ctx.inject(Mecha)
-
-            logging.debug("Configuring mecha")
-            configure_mecha(mc)
 
             for pack in ctx.packs:
                 logging.debug("Enqueuing files in database")
@@ -133,7 +135,8 @@ class ProjectBuilderShadow(ProjectBuilder):
             return ctx
 
 
-def configure_mecha(mc: Mecha):
+def configure_ctx(ctx: LanguageServerContext):
     # mc.steps = mc.steps[: mc.steps.index(mc.lint) + 1]
 
+    register_providers(ctx)
     apply_patches()

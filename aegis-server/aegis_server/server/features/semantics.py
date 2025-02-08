@@ -108,15 +108,6 @@ class SemanticTokenCollector(Reducer):
                     pos=node.location.pos + name_length,
                     colno=node.location.colno + name_length,
                 )
-            # if node.location.lineno == node.arguments[0].location.lineno:
-            #     command_name_offset = (
-            #         node.arguments[0].location.pos - node.location.pos - 1
-            #     )
-            #     end_location = SourceLocation(
-            #         lineno=node.location.lineno,
-            #         pos=node.location.pos + command_name_offset,
-            #         colno=node.location.colno + command_name_offset,
-            #     )
             else:
                 return
 
@@ -190,17 +181,6 @@ class SemanticTokenCollector(Reducer):
                 f"An error occured running provider {provider}\n{e}\n{tb}"
             )
 
-    # @rule(AstAssignment)
-    # def assignment(self, assignment: AstAssignment):
-    #     self.generic_identifier(assignment.target)
-
-    #     if assignment.type_annotation != None:
-    #         self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
-
-    # @rule(AstExpressionUnary)
-    # def expression(self, expression: AstExpressionUnary):
-    #     if expression.operator == "not" or expression.operator == "is":
-    #         self.nodes.append((expression, TOKEN_TYPES["operator"], TOKEN_MODIFIERS["declaration"]))
 
     def walk(self, root: AstNode):
         self.nodes = []

@@ -1,6 +1,6 @@
 import builtins
 
-from aegis_core.ast.features.variable import add_raw_definition, add_variable_definition
+from aegis_server.providers.variable import add_raw_definition, add_variable_definition
 from bolt import Runtime, UndefinedIdentifier
 from lsprotocol import types as lsp
 from mecha import (

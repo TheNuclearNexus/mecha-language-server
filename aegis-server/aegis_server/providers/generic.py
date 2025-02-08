@@ -2,6 +2,7 @@ import logging
 import re
 from types import NoneType
 from typing import ClassVar
+from aegis_core.ast.features.provider import BaseFeatureProvider
 from aegis_core.ast.helpers import offset_location
 from aegis_core.ast.metadata import VariableMetadata, retrieve_metadata
 from aegis_core.semantics import TokenModifier, TokenType
@@ -15,7 +16,6 @@ from bolt import (
 from mecha import AstNode
 from mecha.ast import AstItemSlot
 from tokenstream import SourceLocation
-from .provider import BaseFeatureProvider
 
 
 __all__ = [

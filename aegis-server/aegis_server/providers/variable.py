@@ -1,8 +1,10 @@
 from functools import reduce
 import inspect
-from typing import Any, Literal, get_origin
-from aegis_core.ast.features.provider import SemanticsParams
+from typing import Any, get_origin
+from aegis_core.ast.features.provider import BaseFeatureProvider
 from aegis_core.ast.helpers import offset_location
+from aegis_core.ast.metadata import VariableMetadata, attach_metadata, retrieve_metadata
+from aegis_core.reflection import UNKNOWN_TYPE, FunctionInfo, TypeInfo, get_annotation_description, get_function_description, get_type_info
 from aegis_core.semantics import TokenModifier, TokenType
 import lsprotocol.types as lsp
 from bolt import (
@@ -11,22 +13,11 @@ from bolt import (
     AstImportedItem,
     AstTargetAttribute,
     AstTargetIdentifier,
-    Runtime,
     Variable,
 )
 from mecha import AstNode
-from tokenstream import set_location
 
-from ...reflection import (
-    UNKNOWN_TYPE,
-    FunctionInfo,
-    TypeInfo,
-    get_annotation_description,
-    get_function_description,
-    get_type_info,
-)
-from ..metadata import VariableMetadata, attach_metadata, retrieve_metadata
-from . import BaseFeatureProvider
+
 
 __all__ = ["VariableFeatureProvider"]
 

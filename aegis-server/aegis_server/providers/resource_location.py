@@ -6,17 +6,15 @@ from pathlib import Path
 import re
 from typing import cast
 
+from aegis_core.ast.features.provider import BaseFeatureProvider
+from aegis_core.ast.helpers import node_location_to_range
+from aegis_core.ast.metadata import ResourceLocationMetadata, retrieve_metadata
+from aegis_core.indexing.project_index import AegisProjectIndex
 import lsprotocol.types as lsp
 from beet import File, NamespaceFile
 from mecha import AstResourceLocation
 
 from aegis_core.registry import AegisGameRegistries
-
-from ...ast.helpers import node_location_to_range
-from ...ast.metadata import ResourceLocationMetadata, retrieve_metadata
-from ...indexing.project_index import AegisProjectIndex
-from .provider import BaseFeatureProvider
-
 
 def add_registry_items(
     registries: AegisGameRegistries,
