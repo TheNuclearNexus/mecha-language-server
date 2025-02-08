@@ -134,10 +134,10 @@ def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
             ctx.path_to_resource[path] = (location, file)
             ctx.data[type(file)][location] = file
 
-        logging.debug(f"Mounted {path} to {location}")
+        logging.debug(f"Mounted {file_path} to {location}")
         return True
     except Exception as exc:
-        logging.error(f"Failed to mount {path}, reloading datapack,\n{exc}")
+        logging.error(f"Failed to mount {file_path}, reloading datapack,\n{exc}")
 
     return False
 
