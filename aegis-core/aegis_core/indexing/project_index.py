@@ -1,3 +1,4 @@
+from heapq import heapify
 import logging
 import re
 from dataclasses import dataclass, field
@@ -5,8 +6,10 @@ from pathlib import Path
 from threading import Lock
 from typing import ClassVar
 
-from beet import Context, File, NamespaceFile
+from beet import Context, File, Function, NamespaceFile
 from beet.core.utils import extra_field, required_field
+from bolt import Module
+from mecha import Mecha
 from tokenstream import SourceLocation
 
 __all__ = ["FilePointer", "ResourceIndex", "AegisProjectIndex"]
@@ -43,22 +46,27 @@ class ResourceIndex:
     _files: dict[str, ResourceIndice] = extra_field(default_factory=dict)
     _lock: Lock = extra_field(default_factory=Lock)
 
-    def remove_associated(self, path: str | File):
+    def remove_associated(self, path: str | File) -> list[str]:
         self._lock.acquire()
 
         if isinstance(path, File):
             path = str(Path(path.ensure_source_path()).absolute())
 
+        removed = []
+
         for file, indice in list(self._files.items()):
-            if path in indice.definitions:
-                del indice.definitions[path]
+
             if path in indice.references:
                 del indice.references[path]
+            if path in indice.definitions:
+                del indice.definitions[path]
 
-            if len(indice.definitions) == 0:
-                del self._files[file]
+                if len(indice.definitions) == 0:
+                    del self._files[file]
+                    removed.append(file)
 
         self._lock.release()
+        return removed
 
     def add_definition(
         self,
@@ -158,8 +166,31 @@ class AegisProjectIndex:
         return self._resources.setdefault(key, ResourceIndex())
 
     def remove_associated(self, path: str):
-        for resource in self._resources.values():
-            resource.remove_associated(path)
+        for resource, index in self._resources.items():
+            removed_files = index.remove_associated(path)
+
+            for removed in removed_files:
+                for pack in self._ctx.packs:
+                    if not removed in pack[resource]:
+                        continue
+
+                    file = pack[resource][removed]
+
+                    mecha = self._ctx.inject(Mecha)
+                    if file in mecha.database:
+                        del mecha.database[file]
+                        self._remove_from_queue(file, mecha)
+
+    def _remove_from_queue(self, file, mecha: Mecha):
+        index = -1
+        for i, (_, _, _, _, queued_file) in enumerate(mecha.database.queue):
+            if file == queued_file:
+                index = i
+                break
+
+        if index != -1:
+            mecha.database.queue.pop(i)
+            heapify(mecha.database.queue)
 
     def dump(self) -> str:
         dump = ""

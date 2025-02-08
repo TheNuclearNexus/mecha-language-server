@@ -9,6 +9,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock, Thread
+import traceback
 from typing import Generator, cast
 from urllib import request
 from urllib.parse import unquote, urlparse
@@ -65,7 +66,7 @@ class AegisServer(LanguageServer):
             target=lambda self, parent: self.scan_functions(parent),
             args=[self, threading.current_thread()],
         )
-        self._index_thread.start()
+        # self._index_thread.start()
 
     def index_functions(self, ctx: LanguageServerContext):
         for function, file in cast(
@@ -93,7 +94,8 @@ class AegisServer(LanguageServer):
                     time.sleep(0.1)
         except Exception as exc:
             lock.release()
-            logging.error(f"Fatal error occured while indexing function!\n{exc}")
+            tb = "\n".join(traceback.format_tb(exc.__traceback__))
+            logging.error(f"Fatal error occured while indexing function!\n{exc}\n{tb}")
 
         logging.info("Stopped Indexing Thread")
 

@@ -211,6 +211,13 @@ def compile(
     mecha = ctx.inject(Mecha)
     diagnostics = []
 
+    try:
+        project_index = ctx.inject(AegisProjectIndex)
+        project_index.remove_associated(source_path)
+    except Exception as e:
+        tb = "\n".join(traceback.format_tb(e.__traceback__))
+        logging.error(f"{e}\n{tb}")
+    
     indexer = Indexer(
         ctx=ctx,
         resource_location=resource_location,
@@ -224,10 +231,12 @@ def compile(
         compiled_unit = CompilationUnit(
             resource_location=resource_location, pack=ctx.data
         )
-        mecha.database[source_file] = compiled_unit
-        mecha.database.enqueue(source_file)
+        database = mecha.database
+        database[source_file] = compiled_unit
+        database.enqueue(source_file)
 
-        for step, file_instance in mecha.database.process_queue():
+
+        for step, file_instance in database.process_queue():
             compilation_unit = mecha.database[file_instance]
 
             if step < 0:

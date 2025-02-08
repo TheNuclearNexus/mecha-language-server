@@ -683,7 +683,6 @@ class Indexer(MutatingReducer):
 
         # A file always defines itself
         source_type = type(self.file_instance)
-        project_index.remove_associated(self.source_path)
 
         project_index[source_type].add_definition(
             self.resource_location, self.source_path

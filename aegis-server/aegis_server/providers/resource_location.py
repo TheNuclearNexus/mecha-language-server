@@ -146,13 +146,10 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
                 resolved_parent = resolved[1].parent
                 unresolved_parent = unresolved[1].parent
 
-            logging.debug(f"{resolved[0]}:{resolved_parent}, {unresolved[0]}:{unresolved_parent}")
-
             items = []
 
             for file in project_index[represents]:
                 file_path = get_path(file)
-                logging.debug(file_path)
 
                 if not (
                     file_path[0] == resolved[0]
