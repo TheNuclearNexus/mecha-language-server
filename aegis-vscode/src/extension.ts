@@ -187,6 +187,18 @@ export async function activate(context: vscode.ExtensionContext) {
             )
                 return;
 
+            if (e.fileName.endsWith(".bolt") && e.languageId !== "mcfunction") {
+                vscode.window
+                    .showWarningMessage(
+                        ".bolt files aren't associated with mcfunction, this might break highlighting.",
+                        "Configure Language Mode"
+                    )
+                    .then((s) => {
+                        if (s == "Configure Language Mode")
+                            updateFileAssociation();
+                    });
+            }
+
             if (!client && !didClientFail) {
                 await startLangServer(context);
             }
@@ -330,6 +342,15 @@ async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
     }
 
     return true;
+}
+
+function updateFileAssociation() {
+    const config = vscode.workspace.getConfiguration();
+    const associations: Record<string, string> =
+        config.get("files.associations");
+
+    associations["*.bolt"] = "mcfunction";
+    config.update("files.associations", associations);
 }
 
 async function runPythonCommand(
