@@ -34,4 +34,6 @@ def get_hover(ls: AegisServer, params: lsp.HoverParams):
 
     provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
 
-    return provider.hover(HoverParams(compiled_doc.ctx, node, text_range))
+    return provider.hover(
+        HoverParams(compiled_doc.ctx, node, compiled_doc.resource_location, text_range)
+    )

@@ -1,51 +1,32 @@
-import inspect
-import logging
+import logging, traceback
 from dataclasses import dataclass, field
-from types import NoneType
-from typing import Any, Literal, Union, get_args, get_origin
+from typing import get_args
 
+from aegis_core.ast.features import AegisFeatureProviders
+from aegis_core.ast.features.provider import SemanticsParams
+from aegis_core.ast.helpers import offset_location
 from beet import Context
 from beet.core.utils import required_field
 from bolt import (
-    AstAssignment,
-    AstAttribute,
-    AstCall,
-    AstClassBases,
-    AstClassName,
-    AstExpression,
-    AstExpressionUnary,
     AstFromImport,
-    AstFunctionSignature,
-    AstFunctionSignatureArgument,
-    AstIdentifier,
     AstImportedItem,
     AstPrelude,
-    AstTarget,
-    AstTargetIdentifier,
-    AstValue,
 )
 from lsprotocol import types as lsp
 from mecha import (
     AstCommand,
-    AstItemSlot,
-    AstMessageText,
     AstNode,
     AstResourceLocation,
     Mecha,
     Reducer,
-    Visitor,
     rule,
 )
-from mecha.contrib.nested_location import AstNestedLocation
-from tokenstream import SourceLocation, set_location
+from tokenstream import SourceLocation
 
-from aegis_core.reflection import FunctionInfo, TypeInfo
 from aegis_core.semantics import TokenModifier, TokenType
 
 from ...server import AegisServer
 from ..features.validate import get_compilation_data
-from ..indexing import get_type_annotation, set_type_annotation
-from .helpers import offset_location
 
 TOKEN_TYPES: dict[TokenType, int] = {
     get_args(literal)[0]: i for (i, literal) in enumerate(get_args(TokenType))
@@ -89,6 +70,7 @@ def node_to_token(
 class SemanticTokenCollector(Reducer):
     nodes: list[tuple[AstNode, int, int]] = field(default_factory=list)
     ctx: Context = required_field()
+    resource_location: str = required_field()
 
     @rule(AstCommand)
     def command(self, node: AstCommand):
@@ -183,72 +165,30 @@ class SemanticTokenCollector(Reducer):
             )
         )
 
-    @rule(AstValue)
-    def value(self, value: AstValue):
-        if not (annotation := get_type_annotation(value)):
-            return
-
-        if annotation is NoneType:
-            self.nodes.append(
-                (value, TOKEN_TYPES["variable"], TOKEN_MODIFIERS["readonly"])
+    @rule(AstNode)
+    def node(self, node: AstNode):
+        provider = self.ctx.inject(AegisFeatureProviders).retrieve(node)
+        try:
+            tokens = provider.semantics(
+                SemanticsParams(self.ctx, node, self.resource_location)
             )
-        elif annotation is bool:
-            self.nodes.append((value, TOKEN_TYPES["macro"], 0))
 
-    @rule(AstImportedItem)
-    def imported_item(self, imported_item: AstImportedItem):
-        self.generic_identifier(imported_item.name, imported_item)
+            if not tokens or len(tokens) == 0:
+                return
 
-    @rule(AstAttribute)
-    def attribute(self, attribute: AstAttribute):
-
-        attribute_location = AstIdentifier(
-            location=SourceLocation(
-                attribute.end_location.pos - len(attribute.name),
-                attribute.end_location.lineno,
-                attribute.end_location.colno - len(attribute.name),
-            ),
-            end_location=attribute.end_location,
-            value=attribute.name,
-        )
-
-        set_type_annotation(attribute_location, get_type_annotation(attribute))
-
-        self.generic_identifier(attribute.name, attribute_location)
-
-    @rule(AstItemSlot)
-    def item_slot(self, item_slot: AstItemSlot):
-        self.nodes.append(
-            (item_slot, TOKEN_TYPES["variable"], TOKEN_MODIFIERS["readonly"])
-        )
-
-    @rule(AstResourceLocation)
-    def resource_location(self, resource_location: AstResourceLocation):
-        self.nodes.append((resource_location, TOKEN_TYPES["function"], 0))
-
-    @rule(AstClassName)
-    def class_name(self, class_name: AstClassName):
-        self.nodes.append((class_name, TOKEN_TYPES["class"], 0))
-
-    @rule(AstFunctionSignature)
-    def function_signature(self, signature: AstFunctionSignature):
-        location: SourceLocation = signature.location
-        node = AstNode(
-            location=location,
-            end_location=offset_location(signature.location, len(signature.name)),
-        )
-        self.nodes.append((node, TOKEN_TYPES["function"], 0))
-
-        if len(signature.arguments) >= 1:
-            first = signature.arguments[0]
-
-            if isinstance(first, AstFunctionSignatureArgument) and first.name == "self":
-                self.nodes.append((first, TOKEN_TYPES["macro"], 0))
-
-    @rule(AstFunctionSignatureArgument)
-    def function_signature_argument(self, argument: AstFunctionSignatureArgument):
-        if argument.type_annotation:
-            self.nodes.append((argument.type_annotation, TOKEN_TYPES["class"], 0))
+            self.nodes.extend(
+                (
+                    node,
+                    TOKEN_TYPES[token_type],
+                    sum(map(lambda m: TOKEN_MODIFIERS[m], token_modifiers)),
+                )
+                for node, token_type, token_modifiers in tokens
+            )
+        except Exception as e:
+            tb = '\n'.join(traceback.format_tb(e.__traceback__))
+            logging.error(
+                f"An error occured running provider {provider}\n{e}\n{tb}"
+            )
 
     # @rule(AstAssignment)
     # def assignment(self, assignment: AstAssignment):
@@ -256,40 +196,6 @@ class SemanticTokenCollector(Reducer):
 
     #     if assignment.type_annotation != None:
     #         self.nodes.append((assignment.type_annotation, TOKEN_TYPES["class"], 0))
-
-    def generic_identifier(self, variable_name: str, identifier: Any):
-        annotation = get_type_annotation(identifier)
-
-        if annotation is not None and (
-            inspect.isfunction(annotation)
-            or inspect.isbuiltin(annotation)
-            or isinstance(annotation, FunctionInfo)
-        ):
-            self.nodes.append((identifier, TOKEN_TYPES["function"], 0))
-        elif annotation is not None and (
-            get_origin(annotation) is type or isinstance(annotation, TypeInfo)
-        ):
-            self.nodes.append((identifier, TOKEN_TYPES["class"], 0))
-        else:
-            kind = TOKEN_TYPES["variable"]
-            modifiers = 0
-
-            if variable_name.isupper():
-                modifiers += TOKEN_MODIFIERS["readonly"]
-            elif variable_name == "self":
-                kind = TOKEN_TYPES["macro"]
-
-            self.nodes.append(
-                (
-                    identifier,
-                    kind,
-                    modifiers,
-                )
-            )
-
-    @rule(AstIdentifier, AstTargetIdentifier)
-    def identifier(self, identifier: AstIdentifier | AstTargetIdentifier):
-        self.generic_identifier(identifier.value, identifier)
 
     # @rule(AstExpressionUnary)
     # def expression(self, expression: AstExpressionUnary):
@@ -324,7 +230,13 @@ def semantic_tokens(ls: AegisServer, params: lsp.SemanticTokensParams):
             if compiled_doc := get_compilation_data(ctx, text_doc):
                 ast = compiled_doc.ast
 
-                data = SemanticTokenCollector(ctx=ctx).walk(ast) if ast else []
+                data = (
+                    SemanticTokenCollector(
+                        ctx=ctx, resource_location=compiled_doc.resource_location
+                    ).walk(ast)
+                    if ast
+                    else []
+                )
             else:
                 data = []
 

@@ -1,25 +1,13 @@
-import inspect
-import logging
-from copy import copy
-from typing import Any, Iterable, cast, get_args, get_origin
+from typing import Any, cast
 
 from beet import NamespaceFile
-from bolt import AstIdentifier, AstTargetIdentifier, Binding, LexicalScope
 from lsprotocol import types as lsp
 from mecha import AstNode, AstResourceLocation
 from tokenstream import SourceLocation
 
 from aegis_core.ast.metadata import ResourceLocationMetadata, retrieve_metadata
-from aegis_core.reflection import (
-    FunctionInfo,
-    TypeInfo,
-    format_function_hints,
-    get_name_of_type,
-    get_type_info,
-)
 
 from .. import AegisServer
-from ..indexing import AegisProjectIndex
 from .validate import get_compilation_data
 
 
@@ -70,8 +58,3 @@ def get_node_at_position(root: AstNode, pos: lsp.Position):
 
     return nearest_node
 
-
-def offset_location(location: SourceLocation, offset):
-    return SourceLocation(
-        location.pos + offset, location.lineno, location.colno + offset
-    )

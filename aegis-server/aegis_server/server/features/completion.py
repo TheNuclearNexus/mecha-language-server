@@ -1,12 +1,9 @@
 import builtins
-import inspect
-from functools import reduce
-from typing import Any
 
-from bolt import AstAttribute, Runtime, UndefinedIdentifier, Variable
+from aegis_core.ast.features.variable import add_raw_definition, add_variable_definition
+from bolt import Runtime, UndefinedIdentifier
 from lsprotocol import types as lsp
 from mecha import (
-    AstNode,
     AstOption,
     BasicLiteralParser,
     Mecha,
@@ -16,18 +13,9 @@ from tokenstream import UnexpectedEOF, UnexpectedToken
 
 from aegis_core.ast.features import AegisFeatureProviders
 from aegis_core.ast.features.provider import CompletionParams
-from aegis_core.reflection import (
-    UNKNOWN_TYPE,
-    FunctionInfo,
-    TypeInfo,
-    get_annotation_description,
-    get_function_description,
-    get_type_info,
-)
 from aegis_server.server.features.helpers import get_node_at_position
 
 from ...server import AegisServer
-from ..indexing import get_type_annotation
 from ..shadows.compile_document import CompilationError
 from ..shadows.context import LanguageServerContext
 from .validate import get_compilation_data
@@ -118,40 +106,8 @@ def get_completions(
         node = get_node_at_position(ast, pos)
 
         provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
-        return provider.completion(CompletionParams(compiled_doc.ctx, node))
-
-
-def get_bolt_completions(
-    node: AstNode,
-    items: list[lsp.CompletionItem],
-):
-    if isinstance(node, AstAttribute):
-        node = node.value
-
-    type_annotation = get_type_annotation(node)
-
-    if type_annotation is UNKNOWN_TYPE:
-        return
-
-    type_info = (
-        get_type_info(type_annotation)
-        if not isinstance(type_annotation, TypeInfo)
-        else type_annotation
-    )
-
-    for name, type in type_info.fields.items():
-        add_variable_completion(items, name, type)
-
-    for name, function_info in type_info.functions.items():
-        items.append(
-            lsp.CompletionItem(
-                name,
-                kind=lsp.CompletionItemKind.Function,
-                documentation=lsp.MarkupContent(
-                    kind=lsp.MarkupKind.Markdown,
-                    value=get_function_description(name, function_info),
-                ),
-            )
+        return provider.completion(
+            CompletionParams(compiled_doc.ctx, node, compiled_doc.resource_location)
         )
 
 
@@ -191,70 +147,3 @@ def get_diag_completions(
 
             break
     return lsp.CompletionList(False, items)
-
-
-def add_variable_definition(
-    items: list[lsp.CompletionItem], name: str, variable: Variable
-):
-    possible_types = set()
-
-    for binding in variable.bindings:
-        origin = binding.origin
-        if annotation := get_type_annotation(origin):
-            possible_types.add(annotation)
-
-    if len(possible_types) > 0:
-        _type = reduce(lambda a, b: a | b, possible_types)
-        add_variable_completion(items, name, _type)
-
-
-def add_raw_definition(items: list[lsp.CompletionItem], name: str, value: Any):
-    if inspect.isclass(value) or isinstance(value, TypeInfo):
-        add_class_completion(items, name, value)
-    elif (
-        inspect.isfunction(value)
-        or inspect.isbuiltin(value)
-        or isinstance(value, FunctionInfo)
-    ):
-        add_function_completion(items, name, value)
-    else:
-        add_variable_completion(items, name, type(value))
-
-
-def add_class_completion(
-    items: list[lsp.CompletionItem], name: str, type_annotation: Any
-):
-    description = get_annotation_description(name, type_annotation)
-    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
-
-    items.append(
-        lsp.CompletionItem(
-            name, documentation=documentation, kind=lsp.CompletionItemKind.Class
-        )
-    )
-
-
-def add_function_completion(items: list[lsp.CompletionItem], name: str, function: Any):
-    description = get_annotation_description(name, function)
-    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
-
-    items.append(
-        lsp.CompletionItem(
-            name, documentation=documentation, kind=lsp.CompletionItemKind.Function
-        )
-    )
-
-
-def add_variable_completion(
-    items: list[lsp.CompletionItem], name: str, type_annotation: Any
-):
-    kind = (
-        lsp.CompletionItemKind.Property
-        if not name.isupper()
-        else lsp.CompletionItemKind.Constant
-    )
-
-    description = get_annotation_description(name, type_annotation)
-    documentation = lsp.MarkupContent(lsp.MarkupKind.Markdown, description)
-
-    items.append(lsp.CompletionItem(name, documentation=documentation, kind=kind))

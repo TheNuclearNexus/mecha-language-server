@@ -212,3 +212,8 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
             )
 
             return lsp.CompletionList(False, items)
+        
+    @classmethod
+    def semantics(cls, params):
+        return [(params.node, "function", [])]
+

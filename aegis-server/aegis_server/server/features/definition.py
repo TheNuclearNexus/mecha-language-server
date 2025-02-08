@@ -25,7 +25,9 @@ def get_definition(ls: AegisServer, params: lsp.DefinitionParams):
 
     provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
 
-    return provider.definition(DefinitionParams(compiled_doc.ctx, node))
+    return provider.definition(
+        DefinitionParams(compiled_doc.ctx, node, compiled_doc.resource_location)
+    )
 
     if compiled_doc.compiled_module is None:
         return

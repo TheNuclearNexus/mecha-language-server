@@ -1,22 +1,41 @@
 from dataclasses import dataclass, field
 
 from beet import Context
-from bolt import AstAttribute, AstIdentifier, AstImportedItem, AstTargetAttribute, AstTargetIdentifier
-from mecha import AstNode, AstResourceLocation
+from bolt import (
+    AstAttribute,
+    AstClassName,
+    AstFormatString,
+    AstFunctionSignature,
+    AstFunctionSignatureArgument,
+    AstIdentifier,
+    AstImportedItem,
+    AstTargetAttribute,
+    AstTargetIdentifier,
+    AstValue,
+)
+from mecha import AstNode, AstResourceLocation, AstItemSlot
 
 from .provider import *
 from .resource_location import *
 from .variable import *
-
+from .generic import *
 
 def get_default_providers() -> dict[type[AstNode], type[BaseFeatureProvider]]:
     return {
+        # Bolt Specific
         AstIdentifier: VariableFeatureProvider,
         AstAttribute: VariableFeatureProvider,
         AstTargetAttribute: VariableFeatureProvider,
         AstTargetIdentifier: VariableFeatureProvider,
         AstImportedItem: VariableFeatureProvider,
+        AstClassName: ClassNameProvider,
+        AstFunctionSignature: FunctionSignatureProvider,
+        AstFunctionSignatureArgument: FunctionSignatureArgProvider,
+        AstValue: ValueProvider,
+        AstFormatString: FormatStringProvider,
+        # Mecha Specific
         AstResourceLocation: ResourceLocationFeatureProvider,
+        AstItemSlot: ItemSlotProvider,
     }
 
 

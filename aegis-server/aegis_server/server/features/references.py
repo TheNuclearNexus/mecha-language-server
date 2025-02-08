@@ -25,7 +25,9 @@ def get_references(ls: AegisServer, params: lsp.ReferenceParams):
 
     provider = compiled_doc.ctx.inject(AegisFeatureProviders).retrieve(node)
 
-    return provider.references(ReferencesParams(compiled_doc.ctx, node))
+    return provider.references(
+        ReferencesParams(compiled_doc.ctx, node, compiled_doc.resource_location)
+    )
 
     if isinstance(node, AstResourceLocation):
         if not (represents := get_representation_file(project_index, node)):

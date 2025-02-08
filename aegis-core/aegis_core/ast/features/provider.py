@@ -25,6 +25,7 @@ Node = TypeVar("Node", bound=AstNode)
 class BaseParams(Generic[Node]):
     ctx: Context
     node: Node
+    resource_location: str
 
 
 @dataclass
@@ -81,5 +82,5 @@ class BaseFeatureProvider(Generic[Node]):
     @classmethod
     def semantics(
         cls, params: SemanticsParams[Node]
-    ) -> list[tuple[AstNode, TokenType, TokenModifier]] | None:
+    ) -> list[tuple[AstNode, TokenType, list[TokenModifier]]] | None:
         return None

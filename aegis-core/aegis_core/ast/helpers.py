@@ -29,3 +29,9 @@ def location_to_position(location: SourceLocation) -> lsp.Position:
         line=max(location.lineno - 1, 0),
         character=max(location.colno - 1, 0),
     )
+
+
+def offset_location(location: SourceLocation, offset):
+    return SourceLocation(
+        location.pos + offset, location.lineno, location.colno + offset
+    )
