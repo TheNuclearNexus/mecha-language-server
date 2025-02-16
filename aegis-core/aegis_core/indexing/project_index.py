@@ -175,6 +175,7 @@ class AegisProjectIndex:
                         continue
 
                     file = pack[resource][removed]
+                    del pack[resource][removed]
 
                     mecha = self._ctx.inject(Mecha)
                     if file in mecha.database:

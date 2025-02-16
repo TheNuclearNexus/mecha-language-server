@@ -114,6 +114,8 @@ def node_to_types(node: AstNode):
     elif len(types) == 1:
         return types[0]
 
+    # TODO: Fix type unions
+    return []
     return reduce(lambda a, b: a | b, types)
 
 
@@ -427,6 +429,8 @@ class BindingStep(Reducer):
     def command(self, command: AstCommand):
         if not (prototype := self.mecha.spec.prototypes.get(command.identifier)):
             return
+        
+        nested_root_found = False
 
         for i, argument in enumerate(command.arguments):
 
@@ -471,9 +475,10 @@ class BindingStep(Reducer):
                     # Check the command tree for the pattern:
                     # resource_location, defintion
                     # which is used by the nested resource plugin to define a new resource
-                    if i + 1 < len(command.arguments) and isinstance(
-                        command.arguments[i + 1], (AstRoot, AstJson)
-                    ):
+                    if isinstance(
+                        command.arguments[-1], (AstRoot, AstJson)
+                    ) and not nested_root_found:
+                        nested_root_found = True
                         self.index[file_type].add_definition(
                             resolved_path,
                             self.source_path,

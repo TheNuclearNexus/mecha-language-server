@@ -171,7 +171,8 @@ class ResourceLocationFeatureProvider(BaseFeatureProvider[AstResourceLocation]):
 
                 insert_text = (
                     f"{unresolved[0] + ':' if unresolved[0] else ''}{new_path}"
-                )
+                ).replace("\\", "/")
+                
                 if node.is_tag:
                     insert_text = "#" + insert_text
 
