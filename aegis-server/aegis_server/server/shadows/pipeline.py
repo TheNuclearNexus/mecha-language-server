@@ -1,6 +1,7 @@
 from typing import cast
 
 import lsprotocol.types as lsp
+import traceback as tb
 from beet import Context, GenericPlugin, Pipeline, Task
 
 from .context import LanguageServerContext
@@ -15,7 +16,8 @@ class PipelineShadow(Pipeline):
                 plugin = self.resolve(spec)
             except Exception as exc:
                 ls = cast(LanguageServerContext, self.ctx).ls
-                message = f"An issue occured while loading plugin: {spec}\n{exc}"
+                traceback = '\n'.join(tb.format_tb(exc.__traceback__))
+                message = f"An issue occured while loading plugin: {spec}\n{exc}\n{traceback}"
                 ls.show_message(message.split("\n")[0], lsp.MessageType.Warning)
                 ls.show_message_log(message, lsp.MessageType.Warning)
                 continue
@@ -32,6 +34,7 @@ class PipelineShadow(Pipeline):
                 Task(plugin).advance(self.ctx)
             except Exception as exc:
                 ls = cast(LanguageServerContext, self.ctx).ls
-                message = f"An issue occured while running first step of plugin: {plugin}\n{exc}"
+                traceback = '\n'.join(tb.format_tb(exc.__traceback__))
+                message = f"An issue occured while running first step of plugin: {plugin}\n{exc}\n{traceback}"
                 ls.show_message(message.split("\n")[0], lsp.MessageType.Warning)
                 ls.show_message_log(message, lsp.MessageType.Warning)
