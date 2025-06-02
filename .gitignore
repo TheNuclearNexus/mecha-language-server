@@ -1,6 +1,7 @@
 __pycache__/
 .venv/
 .vscode/
+.idea/
 .mls_cache/
 .aegis_cache/
 .beet_cache/
