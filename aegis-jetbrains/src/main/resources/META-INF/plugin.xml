@@ -22,10 +22,6 @@
 
         <platform.lsp.serverSupportProvider implementation="com.github.thenuclearnexus.aegis.ide.lsp.AegisLspServerSupportProvider" />
 
-        <applicationConfigurable instance="com.github.thenuclearnexus.aegis.ide.lsp.AegisSettingsConfigurable"
-                                 displayName="Aegis LSP Settings"
-                                 id="com.github.thenuclearnexus.aegis.settings"/>
-
         <notificationGroup displayType="BALLOON" id="Aegis LSP" />
     </extensions>
 </idea-plugin>
