@@ -1,24 +1,25 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.notification.NotificationGroupManager
-import com.intellij.notification.NotificationType
-import com.intellij.notification.Notifications
+import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
-import com.intellij.util.ui.UIUtil
-import kotlin.io.path.createTempFile
 import com.jetbrains.python.sdk.PythonSdkUtil
-import java.awt.Image
+import java.awt.GraphicsEnvironment
+import java.awt.Transparency
 import java.awt.image.BufferedImage
 import javax.swing.Icon
 import javax.swing.ImageIcon
+import kotlin.io.path.createTempFile
 
 private val FILE_EXTENSIONS = setOf("mcfunction", "bolt")
 
@@ -33,7 +34,8 @@ private fun getSitePackagesPath(): String? {
 }
 
 private fun hasBeetFile(project: Project): Boolean {
-    val baseDir = project.baseDir ?: return false
+    val basePath = project.basePath ?: return false
+    val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath") ?: return false
     return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.toml") != null
 }
 
@@ -75,7 +77,7 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         if (!hasBeetFile(project)) {
             val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Aegis LSP")
             val notification = notificationGroup
-                .createNotification("Beet File Missing", "beet.json or beet.toml file not found in project root. LSP server was not started.", NotificationType.WARNING)
+                .createNotification("Beet file missing", "The file beet.json or beet.toml was not found in project root. LSP server was not started. Please add the file.", NotificationType.WARNING)
             Notifications.Bus.notify(notification, project)
             return
         }
@@ -86,11 +88,12 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         val icon = IconLoader.getIcon("/icons/aegis.png", AegisLspServerSupportProvider::class.java)
         val w = icon.iconWidth
         val h = icon.iconHeight
-        val img = UIUtil.createImage(w, h, BufferedImage.TYPE_INT_ARGB)
+        val config = GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration
+        val img: BufferedImage = config.createCompatibleImage(w, h, Transparency.TRANSLUCENT)
         val g = img.createGraphics()
         icon.paintIcon(null, g, 0, 0)
         g.dispose()
-        val scaled = img.getScaledInstance(16, 16, Image.SCALE_SMOOTH)
+        val scaled = img.getScaledInstance(16, 16, BufferedImage.SCALE_SMOOTH)
         return ImageIcon(scaled)
     }
 
