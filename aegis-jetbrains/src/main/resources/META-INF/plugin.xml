@@ -16,17 +16,11 @@
                   extensions="mcfunction"
                   fieldName="INSTANCE"/>
 
-        <lang.parserDefinition language="mcfunction"
-                                implementationClass="com.github.thenuclearnexus.aegis.lang.parser.McFunctionParserDefinition"/>
-
         <fileType name="Bolt"
                   language="bolt"
                   implementationClass="com.github.thenuclearnexus.aegis.lang.BoltFileType"
                   extensions="bolt"
                   fieldName="INSTANCE"/>
-
-        <lang.parserDefinition language="bolt"
-                                implementationClass="com.github.thenuclearnexus.aegis.lang.parser.BoltParserDefinition"/>
 
         <platform.lsp.serverSupportProvider implementation="com.github.thenuclearnexus.aegis.ide.lsp.AegisLspServerSupportProvider" />
 
