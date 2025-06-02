@@ -1,5 +1,5 @@
 <!-- Plugin description -->
-# JetBrains Aegis LSP Plugin
+# Aegis LSP Plugin for JetBrains IDEs
 
 This Plugin uses the Aegis LSP server to provide support for McFunction and Bolt files in JetBrains IDEs.
 

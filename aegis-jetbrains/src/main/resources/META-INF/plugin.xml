@@ -1,7 +1,8 @@
 <idea-plugin>
     <id>com.github.thenuclearnexus.aegis</id>
-    <name>Aegis</name>
+    <name>Aegis LSP Plugin</name>
     <vendor>TheNuclearNexus</vendor>
+    <version>0.0.0</version>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.ultimate</depends>
