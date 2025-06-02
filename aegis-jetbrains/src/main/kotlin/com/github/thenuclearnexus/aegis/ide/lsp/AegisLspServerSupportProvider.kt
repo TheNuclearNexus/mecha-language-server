@@ -1,6 +1,7 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
 import com.intellij.execution.configurations.GeneralCommandLine
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
@@ -18,17 +19,26 @@ import javax.swing.ImageIcon
 
 private val FILE_EXTENSIONS = setOf("mcfunction", "bolt")
 
-fun getPythonInterpreterPath(): String? {
+private fun getPythonInterpreterPath(): String? {
     val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
     return sdk.homePath
 }
 
+private fun getSitePackagesPath(): String? {
+    val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
+    return PythonSdkUtil.getSitePackagesDirectory(sdk)?.path
+}
+
 private class AegisLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "Aegis LSP Server")  {
+    companion object {
+        private val logger = Logger.getInstance(AegisLspServerDescriptor::class.java)
+    }
+
     override fun isSupportedFile(file: VirtualFile) = file.extension in FILE_EXTENSIONS
     override fun createCommandLine(): GeneralCommandLine {
         val resourceName = "/language_server.pyz"
         val inputStream = javaClass.getResourceAsStream(resourceName)
-            ?: throw IllegalStateException("Resource \$resourceName not found in plugin JAR.")
+            ?: throw IllegalStateException("Resource $resourceName not found in plugin JAR.")
         val tempFile = createTempFile("language_server", ".pyz").toFile()
         tempFile.deleteOnExit()
         inputStream.use { input ->
@@ -38,7 +48,11 @@ private class AegisLspServerDescriptor(project: Project) : ProjectWideLspServerD
         }
         val pythonExec = getPythonInterpreterPath()
             ?: throw IllegalStateException("Python interpreter not found. Please install Python.")
-        return GeneralCommandLine(pythonExec, tempFile.absolutePath)
+        val sitePackagesPath = getSitePackagesPath()
+            ?: throw IllegalStateException("Python site-packages directory not found. Please install Python packages.")
+        logger.info("Python executable path: $pythonExec")
+        logger.info("Site-packages path: $sitePackagesPath")
+        return GeneralCommandLine(pythonExec, tempFile.absolutePath, "--site", sitePackagesPath)
     }
 }
 
@@ -57,7 +71,7 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         val icon = IconLoader.getIcon("/icons/aegis.png", AegisLspServerSupportProvider::class.java)
         val w = icon.iconWidth
         val h = icon.iconHeight
-        val img = UIUtil.createImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+        val img = UIUtil.createImage(w, h, BufferedImage.TYPE_INT_ARGB)
         val g = img.createGraphics()
         icon.paintIcon(null, g, 0, 0)
         g.dispose()
