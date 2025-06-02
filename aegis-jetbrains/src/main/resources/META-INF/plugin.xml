@@ -1,0 +1,15 @@
+<idea-plugin>
+    <id>com.github.thenuclearnexus.aegis</id>
+    <name>Aegis</name>
+    <vendor>TheNuclearNexus</vendor>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.ultimate</depends>
+
+    <resource-bundle>messages.MyBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow factoryClass="org.jetbrains.plugins.template.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <postStartupActivity implementation="org.jetbrains.plugins.template.startup.MyProjectActivity" />
+    </extensions>
+</idea-plugin>
