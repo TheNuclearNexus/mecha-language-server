@@ -1,12 +1,12 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
+import com.github.thenuclearnexus.aegis.getIcon
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
 import com.intellij.notification.Notifications
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.platform.lsp.api.LspServer
@@ -14,11 +14,6 @@ import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.jetbrains.python.sdk.PythonSdkUtil
-import java.awt.GraphicsEnvironment
-import java.awt.Transparency
-import java.awt.image.BufferedImage
-import javax.swing.Icon
-import javax.swing.ImageIcon
 import kotlin.io.path.createTempFile
 
 private val FILE_EXTENSIONS = setOf("mcfunction", "bolt")
@@ -118,23 +113,10 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         serverStarter.ensureServerStarted(AegisLspServerDescriptor(project))
     }
 
-    private fun getScaledIcon(): Icon {
-        val icon = IconLoader.getIcon("/icons/aegis.png", AegisLspServerSupportProvider::class.java)
-        val w = icon.iconWidth
-        val h = icon.iconHeight
-        val config = GraphicsEnvironment.getLocalGraphicsEnvironment().defaultScreenDevice.defaultConfiguration
-        val img: BufferedImage = config.createCompatibleImage(w, h, Transparency.TRANSLUCENT)
-        val g = img.createGraphics()
-        icon.paintIcon(null, g, 0, 0)
-        g.dispose()
-        val scaled = img.getScaledInstance(16, 16, BufferedImage.SCALE_SMOOTH)
-        return ImageIcon(scaled)
-    }
-
     override fun createLspServerWidgetItem(lspServer: LspServer, currentFile: VirtualFile?) =
         LspServerWidgetItem(
             lspServer,
             currentFile,
-            getScaledIcon()
+            getIcon("/icons/aegis.png", 16, 16, AegisLspServerSupportProvider::class.java)
         )
 }
