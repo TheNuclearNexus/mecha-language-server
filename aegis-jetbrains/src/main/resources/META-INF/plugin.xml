@@ -24,4 +24,18 @@
 
         <notificationGroup displayType="BALLOON" id="Aegis LSP" />
     </extensions>
+    <actions>
+        <action id="NewBoltFileAction"
+                class="com.github.thenuclearnexus.aegis.actions.NewBoltFileAction"
+                text="Bolt File"
+                description="Create a new Bolt file">
+            <add-to-group group-id="NewGroup" anchor="first"/>
+        </action>
+        <action id="NewMcFunctionFileAction"
+                class="com.github.thenuclearnexus.aegis.actions.NewMcFunctionFileAction"
+                text="mcfunction File"
+                description="Create a new mcfunction file">
+            <add-to-group group-id="NewGroup" anchor="first"/>
+        </action>
+    </actions>
 </idea-plugin>
