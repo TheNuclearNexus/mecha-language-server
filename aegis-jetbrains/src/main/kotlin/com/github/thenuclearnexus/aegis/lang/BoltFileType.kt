@@ -1,11 +1,11 @@
 package com.github.thenuclearnexus.aegis.lang
 
 import com.intellij.openapi.fileTypes.LanguageFileType
-import com.github.thenuclearnexus.aegis.getIcon as getScaledIcon
+import com.github.thenuclearnexus.aegis.Icons
 
 object BoltFileType : LanguageFileType(BoltLanguage) {
     override fun getName(): String = "Bolt"
     override fun getDescription(): String = "Bolt is the file type for high-level Minecraft datapack functions, adding support for python-like syntax and features in addition to the standard McFunction syntax."
     override fun getDefaultExtension(): String = "bolt"
-    override fun getIcon() = getScaledIcon("/icons/bolt.png", 16, 16, BoltFileType::class.java)
+    override fun getIcon() = Icons.BOLT
 }

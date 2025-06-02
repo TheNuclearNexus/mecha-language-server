@@ -1,6 +1,6 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
-import com.github.thenuclearnexus.aegis.getIcon
+import com.github.thenuclearnexus.aegis.Icons
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -117,6 +117,6 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         LspServerWidgetItem(
             lspServer,
             currentFile,
-            getIcon("/icons/aegis.png", 16, 16, AegisLspServerSupportProvider::class.java)
+            Icons.AEGIS
         )
 }
