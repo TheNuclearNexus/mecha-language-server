@@ -7,8 +7,6 @@
     <depends>com.intellij.modules.ultimate</depends>
     <depends>PythonCore</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
-
     <extensions defaultExtensionNs="com.intellij">
         <fileType name="McFunction"
                   language="mcfunction"
@@ -27,5 +25,7 @@
         <applicationConfigurable instance="com.github.thenuclearnexus.aegis.ide.lsp.AegisSettingsConfigurable"
                                  displayName="Aegis LSP Settings"
                                  id="com.github.thenuclearnexus.aegis.settings"/>
+
+        <notificationGroup displayType="BALLOON" id="Aegis LSP" />
     </extensions>
 </idea-plugin>

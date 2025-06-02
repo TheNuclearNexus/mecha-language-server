@@ -5,6 +5,9 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.notification.NotificationGroupManager
+import com.intellij.notification.NotificationType
+import com.intellij.notification.Notifications
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
@@ -27,6 +30,11 @@ private fun getPythonInterpreterPath(): String? {
 private fun getSitePackagesPath(): String? {
     val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
     return PythonSdkUtil.getSitePackagesDirectory(sdk)?.path
+}
+
+private fun hasBeetFile(project: Project): Boolean {
+    val baseDir = project.baseDir ?: return false
+    return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.toml") != null
 }
 
 private class AegisLspServerDescriptor(project: Project) : ProjectWideLspServerDescriptor(project, "Aegis LSP Server")  {
@@ -62,9 +70,16 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         file: VirtualFile,
         serverStarter: LspServerSupportProvider.LspServerStarter
     ) {
-        if (file.extension in FILE_EXTENSIONS) {
-            serverStarter.ensureServerStarted(AegisLspServerDescriptor(project))
+        if (file.extension !in FILE_EXTENSIONS) return
+
+        if (!hasBeetFile(project)) {
+            val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Aegis LSP")
+            val notification = notificationGroup
+                .createNotification("Beet File Missing", "beet.json or beet.toml file not found in project root. LSP server was not started.", NotificationType.WARNING)
+            Notifications.Bus.notify(notification, project)
+            return
         }
+        serverStarter.ensureServerStarted(AegisLspServerDescriptor(project))
     }
 
     private fun getScaledIcon(): Icon {
@@ -78,6 +93,7 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
         val scaled = img.getScaledInstance(16, 16, Image.SCALE_SMOOTH)
         return ImageIcon(scaled)
     }
+
     override fun createLspServerWidgetItem(lspServer: LspServer, currentFile: VirtualFile?) =
         LspServerWidgetItem(
             lspServer,
