@@ -31,7 +31,8 @@ private fun getSitePackagesPath(): String? {
 private fun hasBeetFile(project: Project): Boolean {
     val basePath = project.basePath ?: return false
     val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath") ?: return false
-    return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.toml") != null
+    return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.yml") != null
+        || baseDir.findChild("beet.yaml") != null
 }
 
 private class AegisLspServerDescriptor(project: Project) :
@@ -104,7 +105,7 @@ internal class AegisLspServerSupportProvider : LspServerSupportProvider {
             val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Aegis LSP")
             val notification = notificationGroup.createNotification(
                 "Beet config missing",
-                "The file beet.json or beet.toml was not found in project root. LSP server was not started. Please add the file.",
+                "The file beet.json or beet.yml was not found in project root. LSP server was not started. Please add the file.",
                 NotificationType.WARNING
             )
             Notifications.Bus.notify(notification, project)
