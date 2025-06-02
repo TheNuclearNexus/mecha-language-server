@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 .vscode/
 .idea/
+/.idea/
 .mls_cache/
 .aegis_cache/
 .beet_cache/
