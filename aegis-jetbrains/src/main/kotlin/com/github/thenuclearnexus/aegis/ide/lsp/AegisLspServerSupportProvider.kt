@@ -86,10 +86,13 @@ private class AegisLspServerDescriptor(project: Project) :
         }
         logger.info("Python executable path: $pythonExec")
         logger.info("Site-packages path: $sitePackagesPath")
-        if (sitePackagesPath == null) {
-            return GeneralCommandLine(pythonExec, tempFile.absolutePath)
+        val commandLine = if (sitePackagesPath == null) {
+            GeneralCommandLine(pythonExec, tempFile.absolutePath)
+        } else {
+            GeneralCommandLine(pythonExec, tempFile.absolutePath, "--site", sitePackagesPath)
         }
-        return GeneralCommandLine(pythonExec, tempFile.absolutePath, "--site", sitePackagesPath)
+        commandLine.withWorkDirectory(System.getProperty("java.io.tmpdir"))
+        return commandLine
     }
 }
 
