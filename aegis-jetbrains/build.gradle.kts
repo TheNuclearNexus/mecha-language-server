@@ -28,11 +28,19 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.opentest4j)
     intellijPlatform {
-        intellijIdeaUltimate("2025.1.1.1")
-        // create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
-        // bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
-        // plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
-        // testFramework(TestFrameworkType.Platform)
+        create(providers.gradleProperty("platformType"), providers.gradleProperty("platformVersion"))
+        bundledPlugins(providers.gradleProperty("platformBundledPlugins").map { it.split(',') })
+        plugins(providers.gradleProperty("platformPlugins").map { it.split(',') })
+        testFramework(TestFrameworkType.Platform)
+
+        val type = project.property("platformType").toString()
+        val pythonPlugin = project.property("pythonPlugin").toString()
+
+        when (type) {
+            "PC" -> bundledPlugin("PythonCore")
+            "PY" -> bundledPlugin("Pythonid")
+            else -> plugin(pythonPlugin)
+        }
     }
 }
 

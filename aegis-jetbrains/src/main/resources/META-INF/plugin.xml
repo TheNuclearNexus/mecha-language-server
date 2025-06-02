@@ -5,6 +5,7 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.ultimate</depends>
+    <depends>PythonCore</depends>
 
     <resource-bundle>messages.MyBundle</resource-bundle>
 
@@ -28,5 +29,9 @@
                                 implementationClass="com.github.thenuclearnexus.aegis.lang.parser.BoltParserDefinition"/>
 
         <platform.lsp.serverSupportProvider implementation="com.github.thenuclearnexus.aegis.ide.lsp.AegisLspServerSupportProvider" />
+
+        <applicationConfigurable instance="com.github.thenuclearnexus.aegis.ide.lsp.AegisSettingsConfigurable"
+                                 displayName="Aegis LSP Settings"
+                                 id="com.github.thenuclearnexus.aegis.settings"/>
     </extensions>
 </idea-plugin>

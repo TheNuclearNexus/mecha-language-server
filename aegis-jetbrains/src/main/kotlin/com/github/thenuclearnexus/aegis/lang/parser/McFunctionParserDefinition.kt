@@ -20,7 +20,11 @@ import com.intellij.psi.tree.TokenSet
 class McFunctionParserDefinition : ParserDefinition {
     override fun createLexer(project: Project): Lexer = StubLexer()
 
-    override fun createParser(project: Project): PsiParser = PsiParser { _, _ -> throw UnsupportedOperationException("McFunctionParserDefinition does not support parsing") }
+    override fun createParser(project: Project): PsiParser = PsiParser { root, builder ->
+        val marker = builder.mark()
+        marker.done(root)
+        builder.treeBuilt
+    }
     override fun getFileNodeType(): IFileElementType = IFileElementType(McFunctionLanguage)
     override fun getCommentTokens(): TokenSet = TokenSet.EMPTY
     override fun getStringLiteralElements(): TokenSet = TokenSet.EMPTY

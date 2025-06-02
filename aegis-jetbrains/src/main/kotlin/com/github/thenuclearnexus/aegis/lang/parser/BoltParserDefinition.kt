@@ -20,7 +20,11 @@ import com.intellij.psi.tree.TokenSet
 class BoltParserDefinition : ParserDefinition {
     override fun createLexer(project: Project): Lexer = StubLexer()
 
-    override fun createParser(project: Project): PsiParser = PsiParser { _, _ -> throw UnsupportedOperationException("BoltParserDefinition does not support parsing") }
+    override fun createParser(project: Project): PsiParser = PsiParser { root, builder ->
+        val marker = builder.mark()
+        marker.done(root)
+        builder.treeBuilt
+    }
     override fun getFileNodeType(): IFileElementType = IFileElementType(BoltLanguage)
     override fun getCommentTokens(): TokenSet = TokenSet.EMPTY
     override fun getStringLiteralElements(): TokenSet = TokenSet.EMPTY
