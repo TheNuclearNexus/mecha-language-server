@@ -3,7 +3,6 @@ package com.github.thenuclearnexus.aegis
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFileManager
-import com.jetbrains.python.sdk.PythonSdkUtil
 import com.jetbrains.python.sdk.pythonSdk
 import java.awt.GraphicsEnvironment
 import java.awt.Transparency

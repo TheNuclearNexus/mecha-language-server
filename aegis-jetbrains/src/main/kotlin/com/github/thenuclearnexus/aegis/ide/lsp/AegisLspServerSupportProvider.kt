@@ -15,12 +15,13 @@ import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
 import com.intellij.platform.lsp.api.lsWidget.LspServerWidgetItem
 import com.jetbrains.python.sdk.PythonSdkUtil
+import com.jetbrains.python.sdk.pythonSdk
 import kotlin.io.path.createTempFile
 
 private val FILE_EXTENSIONS = setOf("mcfunction", "bolt")
 
-private fun getSitePackagesPath(): String? {
-    val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
+private fun getSitePackagesPath(project: Project): String? {
+    val sdk = project.pythonSdk ?: return null
     return PythonSdkUtil.getSitePackagesDirectory(sdk)?.path
 }
 
@@ -63,7 +64,7 @@ private class AegisLspServerDescriptor(project: Project) :
             Notifications.Bus.notify(notification, project)
             return GeneralCommandLine("echo", "Python interpreter missing")
         }
-        val sitePackagesPath = getSitePackagesPath()
+        val sitePackagesPath = getSitePackagesPath(project)
         if (sitePackagesPath == null) {
             val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Aegis LSP")
             val notification = notificationGroup.createNotification(
