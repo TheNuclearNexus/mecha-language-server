@@ -26,6 +26,6 @@ class BeetRunConfiguration(
         return BeetRunProfileState(environment, this)
     }
 
-    fun isWatch(): Boolean = factory?.id == "BEET_WATCH_CONFIGURATION_FACTORY"
+    fun isWatch(): Boolean = "Watch" in factory?.name.toString()
 }
 

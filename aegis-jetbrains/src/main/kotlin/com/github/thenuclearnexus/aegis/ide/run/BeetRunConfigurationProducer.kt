@@ -22,8 +22,7 @@ class BeetRunConfigurationProducer : LazyRunConfigurationProducer<BeetRunConfigu
                 it is BeetRunConfiguration && it.name == "Beet Build"
             }
             if (existing) return false
-            configuration.name = "Beet Build"
-            sourceElement.set(context.psiLocation)
+            addBeetRunConfigurationsIfNeeded(context.project)
             return true
         }
         return false

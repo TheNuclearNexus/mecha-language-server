@@ -12,7 +12,7 @@ class BeetBuildConfigurationFactory(type: ConfigurationType) : ConfigurationFact
     }
     override fun getName(): String = "Build"
     override fun getIcon() = Icons.BEET
-    override fun getId(): String = "BEET_BUILD_CONFIGURATION_FACTORY"
+    override fun getId(): String = "BEET_CONFIGURATION_FACTORY"
     override fun getOptionsClass() = RunConfigurationOptions::class.java
 }
 
@@ -22,7 +22,7 @@ class BeetWatchConfigurationFactory(type: ConfigurationType) : ConfigurationFact
     }
     override fun getName(): String = "Watch"
     override fun getIcon() = Icons.BEET
-    override fun getId(): String = "BEET_WATCH_CONFIGURATION_FACTORY"
+    override fun getId(): String = "BEET_CONFIGURATION_FACTORY"
     override fun getOptionsClass() = RunConfigurationOptions::class.java
 }
 
