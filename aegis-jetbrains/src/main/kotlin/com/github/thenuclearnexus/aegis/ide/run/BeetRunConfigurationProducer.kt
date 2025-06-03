@@ -9,7 +9,7 @@ import com.github.thenuclearnexus.aegis.hasBeetFile
 
 class BeetRunConfigurationProducer : LazyRunConfigurationProducer<BeetRunConfiguration>() {
     override fun getConfigurationFactory(): ConfigurationFactory {
-        return BeetConfigurationType().configurationFactories[0]
+        return BeetBuildConfigurationFactory(BeetConfigurationType())
     }
 
     override fun setupConfigurationFromContext(
