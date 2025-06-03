@@ -18,6 +18,10 @@ class BeetRunConfigurationProducer : LazyRunConfigurationProducer<BeetRunConfigu
         sourceElement: Ref<PsiElement>
     ): Boolean {
         if (hasBeetFile(context.project)) {
+            val existing = context.runManager.allConfigurationsList.any {
+                it is BeetRunConfiguration && it.name == "Beet Build"
+            }
+            if (existing) return false
             configuration.name = "Beet Build"
             sourceElement.set(context.psiLocation)
             return true
@@ -29,7 +33,9 @@ class BeetRunConfigurationProducer : LazyRunConfigurationProducer<BeetRunConfigu
         configuration: BeetRunConfiguration,
         context: ConfigurationContext
     ): Boolean {
-        return hasBeetFile(context.project) && configuration.type is BeetConfigurationType
+        return hasBeetFile(context.project)
+                && configuration.type is BeetConfigurationType
+                && configuration.name == "Beet Build"
     }
 }
 
