@@ -19,7 +19,6 @@ class BeetRunConfigurationProducer : LazyRunConfigurationProducer<BeetRunConfigu
     ): Boolean {
         if (hasBeetFile(context.project)) {
             configuration.name = "Beet Build"
-            configuration.watch = false
             sourceElement.set(context.psiLocation)
             return true
         }

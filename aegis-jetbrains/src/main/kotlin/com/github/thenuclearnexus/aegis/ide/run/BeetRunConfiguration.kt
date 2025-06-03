@@ -7,23 +7,32 @@ import com.intellij.openapi.options.SettingsEditor
 import com.intellij.openapi.project.Project
 
 class BeetRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
-    : LocatableConfigurationBase<BeetRunConfigurationOptions>(project, factory, name) {
-
-    override fun getOptionsClass(): Class<out BeetRunConfigurationOptions> {
-        return BeetRunConfigurationOptions::class.java
-    }
-
-    var watch: Boolean
-        get() = (options as BeetRunConfigurationOptions).watch
-        set(value) {
-            (options as BeetRunConfigurationOptions).watch = value
-        }
+    : LocatableConfigurationBase<LocatableRunConfigurationOptions>(project, factory, name) {
 
     override fun getConfigurationEditor(): SettingsEditor<out RunConfiguration> {
-        return BeetSettingsEditor()
+        return object : SettingsEditor<RunConfiguration>() {
+            override fun resetEditorFrom(s: RunConfiguration) {}
+            override fun applyEditorTo(s: RunConfiguration) {}
+            override fun createEditor() = javax.swing.JPanel()
+        }
     }
 
     override fun getState(executor: Executor, environment: ExecutionEnvironment): RunProfileState? {
         return BeetRunProfileState(environment, this)
     }
+
+    override fun suggestedName(): String {
+        val currentName = super.getName()
+        return if (currentName == "Untitled") {
+            when (factory?.id) {
+                "BEET_WATCH_CONFIGURATION_FACTORY" -> "Beet Watch"
+                else -> "Beet Build"
+            }
+        } else {
+            currentName
+        }
+    }
+
+    fun isWatch(): Boolean = factory?.id == "BEET_WATCH_CONFIGURATION_FACTORY"
 }
+

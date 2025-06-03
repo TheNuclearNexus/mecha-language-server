@@ -14,9 +14,7 @@ class BeetConfigurationType : ConfigurationType {
     override fun getConfigurationFactories(): Array<ConfigurationFactory> = arrayOf(
         object : ConfigurationFactory(this) {
             override fun createTemplateConfiguration(project: Project): BeetRunConfiguration {
-                return BeetRunConfiguration(project, this, "Beet Build").apply {
-                    watch = false
-                }
+                return BeetRunConfiguration(project, this, "Beet Build")
             }
 
             override fun getName(): String = "Build"
@@ -25,9 +23,7 @@ class BeetConfigurationType : ConfigurationType {
         },
         object : ConfigurationFactory(this) {
             override fun createTemplateConfiguration(project: Project): BeetRunConfiguration {
-                return BeetRunConfiguration(project, this, "Beet Watch").apply {
-                    watch = true
-                }
+                return BeetRunConfiguration(project, this, "Beet Watch")
             }
 
             override fun getName(): String = "Watch"

@@ -19,7 +19,7 @@ class BeetRunProfileState(
         val project: Project = environment.project
         val pythonPath = getPythonInterpreterPath(project) ?: "python"
         val command = mutableListOf(pythonPath, "-m", "beet")
-        if (configuration.watch) {
+        if (configuration.isWatch()) {
             command.add("watch")
         } else {
             command.add("build")
