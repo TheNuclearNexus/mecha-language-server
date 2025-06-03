@@ -9,7 +9,7 @@ import com.intellij.openapi.project.Project
 class BeetRunConfiguration(project: Project, factory: ConfigurationFactory, name: String)
     : LocatableConfigurationBase<BeetRunConfigurationOptions>(project, factory, name) {
 
-    override fun getOptionsClass(): Class<BeetRunConfigurationOptions> {
+    override fun getOptionsClass(): Class<out BeetRunConfigurationOptions> {
         return BeetRunConfigurationOptions::class.java
     }
 

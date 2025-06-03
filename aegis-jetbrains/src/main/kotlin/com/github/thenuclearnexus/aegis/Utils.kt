@@ -3,6 +3,8 @@ package com.github.thenuclearnexus.aegis
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFileManager
+import com.jetbrains.python.sdk.PythonSdkUtil
+import com.jetbrains.python.sdk.pythonSdk
 import java.awt.GraphicsEnvironment
 import java.awt.Transparency
 import java.awt.image.BufferedImage
@@ -28,4 +30,9 @@ fun hasBeetFile(project: Project): Boolean {
     val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath") ?: return false
     return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.yml") != null
             || baseDir.findChild("beet.yaml") != null
+}
+
+fun getPythonInterpreterPath(project: Project): String? {
+    val sdk = project.pythonSdk ?: return null
+    return sdk.homePath
 }

@@ -1,6 +1,7 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
 import com.github.thenuclearnexus.aegis.Icons
+import com.github.thenuclearnexus.aegis.getPythonInterpreterPath
 import com.github.thenuclearnexus.aegis.hasBeetFile
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationGroupManager
@@ -17,11 +18,6 @@ import com.jetbrains.python.sdk.PythonSdkUtil
 import kotlin.io.path.createTempFile
 
 private val FILE_EXTENSIONS = setOf("mcfunction", "bolt")
-
-private fun getPythonInterpreterPath(): String? {
-    val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
-    return sdk.homePath
-}
 
 private fun getSitePackagesPath(): String? {
     val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
@@ -56,7 +52,7 @@ private class AegisLspServerDescriptor(project: Project) :
                 input.copyTo(output)
             }
         }
-        val pythonExec = getPythonInterpreterPath()
+        val pythonExec = getPythonInterpreterPath(project)
         if (pythonExec == null) {
             val notificationGroup = NotificationGroupManager.getInstance().getNotificationGroup("Aegis LSP")
             val notification = notificationGroup.createNotification(
