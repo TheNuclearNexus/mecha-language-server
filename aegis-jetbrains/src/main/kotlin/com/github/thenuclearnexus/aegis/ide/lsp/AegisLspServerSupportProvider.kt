@@ -1,6 +1,7 @@
 package com.github.thenuclearnexus.aegis.ide.lsp
 
 import com.github.thenuclearnexus.aegis.Icons
+import com.github.thenuclearnexus.aegis.hasBeetFile
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.notification.NotificationGroupManager
 import com.intellij.notification.NotificationType
@@ -8,7 +9,6 @@ import com.intellij.notification.Notifications
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.openapi.vfs.VirtualFileManager
 import com.intellij.platform.lsp.api.LspServer
 import com.intellij.platform.lsp.api.LspServerSupportProvider
 import com.intellij.platform.lsp.api.ProjectWideLspServerDescriptor
@@ -26,13 +26,6 @@ private fun getPythonInterpreterPath(): String? {
 private fun getSitePackagesPath(): String? {
     val sdk = PythonSdkUtil.getAllSdks().firstOrNull() ?: return null
     return PythonSdkUtil.getSitePackagesDirectory(sdk)?.path
-}
-
-private fun hasBeetFile(project: Project): Boolean {
-    val basePath = project.basePath ?: return false
-    val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath") ?: return false
-    return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.yml") != null
-        || baseDir.findChild("beet.yaml") != null
 }
 
 private class AegisLspServerDescriptor(project: Project) :

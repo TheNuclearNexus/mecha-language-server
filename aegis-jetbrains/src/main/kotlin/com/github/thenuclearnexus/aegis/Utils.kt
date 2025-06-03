@@ -1,6 +1,8 @@
 package com.github.thenuclearnexus.aegis
 
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.vfs.VirtualFileManager
 import java.awt.GraphicsEnvironment
 import java.awt.Transparency
 import java.awt.image.BufferedImage
@@ -19,4 +21,11 @@ fun getIcon(path: String, width: Int, height: Int, aClass: Class<*>): Icon {
     g.dispose()
     val scaled = img.getScaledInstance(width, height, BufferedImage.SCALE_SMOOTH)
     return ImageIcon(scaled)
+}
+
+fun hasBeetFile(project: Project): Boolean {
+    val basePath = project.basePath ?: return false
+    val baseDir = VirtualFileManager.getInstance().findFileByUrl("file://$basePath") ?: return false
+    return baseDir.findChild("beet.json") != null || baseDir.findChild("beet.yml") != null
+            || baseDir.findChild("beet.yaml") != null
 }

@@ -24,6 +24,9 @@
         <platform.lsp.serverSupportProvider implementation="com.github.thenuclearnexus.aegis.ide.lsp.AegisLspServerSupportProvider" />
 
         <notificationGroup displayType="BALLOON" id="Aegis LSP" />
+
+        <configurationType implementation="com.github.thenuclearnexus.aegis.ide.run.BeetConfigurationType"/>
+        <runConfigurationProducer implementation="com.github.thenuclearnexus.aegis.ide.run.BeetRunConfigurationProducer"/>
     </extensions>
     <actions>
         <action id="NewBoltFileAction"
