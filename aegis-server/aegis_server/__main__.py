@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import logging
 
 from aegis_core.indexing.project_index import AegisProjectIndex
@@ -24,20 +25,24 @@ from .server.features.semantics import (
 def create_server():
     server = AegisServer("aegis-server", __version__)
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_DID_CHANGE)
     def did_change(ls: AegisServer, params: lsp.DidChangeTextDocumentParams):
-        publish_diagnostics(ls, params)
+        asyncio.run(publish_diagnostics(ls, params))
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_DID_OPEN)
     def did_open(ls: AegisServer, params: lsp.DidOpenTextDocumentParams):
-        publish_diagnostics(ls, params)
+        asyncio.run(publish_diagnostics(ls, params))
 
+
+    @server.thread()
     @server.feature(
         lsp.TEXT_DOCUMENT_COMPLETION,
         lsp.CompletionOptions(trigger_characters=[" ", "/", "."]),
     )
     def get_completion(ls: AegisServer, params: lsp.CompletionParams):
-        return completion(ls, params)
+        return asyncio.run(completion(ls, params))
 
     @server.feature(lsp.INITIALIZED)
     def initialized(ls: AegisServer, params: lsp.InitializedParams):
@@ -47,6 +52,7 @@ def create_server():
     def folders_changed(ls: AegisServer, params: lsp.DidChangeWorkspaceFoldersParams):
         ls.setup_workspaces()
 
+    @server.thread()
     @server.feature(
         lsp.TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
         lsp.SemanticTokensLegend(
@@ -55,23 +61,27 @@ def create_server():
         ),
     )
     def semantic_tokens_full(ls: AegisServer, params: lsp.SemanticTokensParams):
-        return semantic_tokens(ls, params)
+        return asyncio.run(semantic_tokens(ls, params))
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_DEFINITION)
     def definition(ls: AegisServer, params: lsp.DefinitionParams):
-        return get_definition(ls, params)
+        return asyncio.run(get_definition(ls, params))
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_REFERENCES)
     def references(ls: AegisServer, params: lsp.ReferenceParams):
-        return get_references(ls, params)
+        return asyncio.run(get_references(ls, params))
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_HOVER)
     def hover(ls: AegisServer, params: lsp.HoverParams):
-        return get_hover(ls, params)
+        return asyncio.run(get_hover(ls, params))
 
+    @server.thread()
     @server.feature(lsp.TEXT_DOCUMENT_RENAME)
     def rename(ls: AegisServer, params: lsp.RenameParams):
-        return rename_variable(ls, params)
+        return asyncio.run(rename_variable(ls, params))
     
     @server.command("mecha.server.dumpIndices")
     def dump(ls: AegisServer, *args):
@@ -107,7 +117,6 @@ def add_arguments(parser: argparse.ArgumentParser):
         help="Show the AST node for the hovered token",
     )
 
-
 def main():
     print("Starting Aegis Server")
     parser = argparse.ArgumentParser()
@@ -117,7 +126,7 @@ def main():
     aegis_server = create_server()
     hover_feature.DEBUG_AST = args.debug_ast
 
-    aegis_server.set_sites(args.site)
+    aegis_server.set_sites(args.site if args.site is not None else [])
 
     if args.tcp:
         aegis_server.start_tcp(args.host, args.port)

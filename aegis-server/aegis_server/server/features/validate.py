@@ -1,7 +1,11 @@
+import asyncio
 import logging
+import multiprocessing
 import os
+import signal
+import time
 import traceback
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path, PurePath
@@ -25,6 +29,7 @@ from mecha import (
     Mecha,
     MutatingReducer,
     rule,
+    dispatch
 )
 from mecha.ast import AstError
 from mecha.contrib.nested_location import (
@@ -46,13 +51,18 @@ SUPPORTED_EXTENSIONS = [Function.extension, Module.extension]
 T = TypeVar("T", bound=AstNode)
 
 
-def get_compilation_data(ctx: LanguageServerContext, text_doc: TextDocument):
-    resource = ctx.path_to_resource.get(os.path.normcase(os.path.normpath(text_doc.path)))
+async def get_compilation_data(ctx: LanguageServerContext, text_doc: TextDocument):
+    await COMPILATION_LOCK.acquire()
+    COMPILATION_LOCK.release()
+
+    resource = ctx.path_to_resource.get(
+        os.path.normcase(os.path.normpath(text_doc.path))
+    )
 
     if resource and resource[0] in COMPILATION_RESULTS:
         return COMPILATION_RESULTS[resource[0]]
 
-    validate_function(ctx, text_doc)
+    await validate_function(ctx, text_doc)
 
     resource = resource or ctx.path_to_resource.get(text_doc.path)
 
@@ -63,31 +73,63 @@ def get_compilation_data(ctx: LanguageServerContext, text_doc: TextDocument):
     return COMPILATION_RESULTS[resource[0]]
 
 
-def validate_function(
+COMPILATION_LOCK = asyncio.Semaphore()
+
+
+@asynccontextmanager
+async def semaphore(lock: asyncio.Semaphore):
+    await lock.acquire()
+    try:
+        yield
+        lock.release()
+    except Exception as ex:
+        lock.release()
+        raise ex
+    finally:
+        lock.release()
+
+
+async def validate_function(
     ctx: LanguageServerContext, text_doc: TextDocument
 ) -> list[CompilationError]:
 
     path = os.path.normcase(os.path.normpath(text_doc.path))
+    logging.debug(f"Queuing compilation of `{path}`")
+    async with semaphore(COMPILATION_LOCK):
 
-    if path not in ctx.path_to_resource:
-        if not try_to_mount_file(ctx, path):
+        logging.debug(f"Starting compilation of `{path}`")
+
+        if path not in ctx.path_to_resource:
+            if not try_to_mount_file(ctx, path):
+                logging.debug("File not in workspaces")
+                return []
+
+        location, file = ctx.path_to_resource[path]
+
+        if not isinstance(file, Function) and not isinstance(file, Module):
+            COMPILATION_RESULTS[location] = CompiledDocument(
+                ctx, location, None, [], None, None
+            )
+            logging.debug("File is not a function or module.")
             return []
 
-    location, file = ctx.path_to_resource[path]
+        try:
+            async with asyncio.timeout(10):
+                compiled_doc = await parse_function(
+                    ctx,
+                    location,
+                    text_doc.path,
+                    type(file)(text_doc.source, text_doc.path),
+                )
 
-    if not isinstance(file, Function) and not isinstance(file, Module):
-        COMPILATION_RESULTS[location] = CompiledDocument(
-            ctx, location, None, [], None, None
-        )
-        return []
+            COMPILATION_RESULTS[location] = compiled_doc
+            res = compiled_doc.diagnostics
 
-    compiled_doc = parse_function(
-        ctx, location, text_doc.path, type(file)(text_doc.source, text_doc.path)
-    )
+        except TimeoutError as ex:
+            logging.debug(f"Compilation took longer than 10 seconds, aborting\n{ex}")
+            res = []
 
-    COMPILATION_RESULTS[location] = compiled_doc
-
-    return compiled_doc.diagnostics
+    return res
 
 
 def try_to_mount_file(ctx: LanguageServerContext, file_path: str):
@@ -168,14 +210,16 @@ class ErrorAccumulator(MutatingReducer):
 Node = TypeVar("Node", bound=AbstractNode)
 
 
-def parse_function(
+async def parse_function(
     ctx: LanguageServerContext,
     resource_location: str,
     source_path: str,
     file_instance: Function | Module,
 ) -> CompiledDocument:
 
-    ast, errors = compile(ctx, resource_location, source_path, file_instance)
+    start = time.time()
+    ast, errors = await compile(ctx, resource_location, source_path, file_instance)
+    logging.debug(f"Compilation for {source_path} took {time.time() - start}s")
 
     # # Parse the stream
     mecha = ctx.inject(Mecha)
@@ -202,7 +246,7 @@ def use_steps(mecha: Mecha, steps):
     mecha.steps = initial_steps
 
 
-def compile(
+async def compile(
     ctx: LanguageServerContext,
     resource_location: str,
     source_path: str,
@@ -217,7 +261,7 @@ def compile(
     except Exception as e:
         tb = "\n".join(traceback.format_tb(e.__traceback__))
         logging.error(f"{e}\n{tb}")
-    
+
     indexer = Indexer(
         ctx=ctx,
         resource_location=resource_location,
@@ -235,9 +279,10 @@ def compile(
         database[source_file] = compiled_unit
         database.enqueue(source_file)
 
-
         for step, file_instance in database.process_queue():
             compilation_unit = mecha.database[file_instance]
+            logging.debug(f"--- Step {step} for {compilation_unit.filename} ---")
+            start = time.time()
 
             if step < 0:
                 try:
@@ -309,4 +354,6 @@ def compile(
 
                     logging.error("\n".join(traceback.format_tb(cause.__traceback__)))
 
+            logging.debug(f"Execution took {time.time() - start}s")
+            await asyncio.sleep(0)
     return indexer.output_ast, diagnostics

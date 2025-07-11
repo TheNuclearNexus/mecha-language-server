@@ -15,8 +15,8 @@ from .helpers import (
 )
 
 
-def get_definition(ls: AegisServer, params: lsp.DefinitionParams):
-    compiled_doc = fetch_compilation_data(ls, params)
+async def get_definition(ls: AegisServer, params: lsp.DefinitionParams):
+    compiled_doc = await fetch_compilation_data(ls, params)
 
     if compiled_doc is None or compiled_doc.ast is None:
         return

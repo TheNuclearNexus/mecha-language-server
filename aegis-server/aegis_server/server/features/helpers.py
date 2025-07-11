@@ -26,14 +26,14 @@ def get_representation_file(node: AstResourceLocation):
     return represents
 
 
-def fetch_compilation_data(ls: AegisServer, params: Any):
+async def fetch_compilation_data(ls: AegisServer, params: Any):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     with ls.context(text_doc) as ctx:
 
         if ctx is None:
             return None
 
-        compiled_doc = get_compilation_data(ctx, text_doc)
+        compiled_doc = await get_compilation_data(ctx, text_doc)
         return compiled_doc
 
 

@@ -36,7 +36,7 @@ def tokenstream_error_to_lsp_diag(
     )
 
 
-def publish_diagnostics(
+async def publish_diagnostics(
     ls: AegisServer,
     params: lsp.DidOpenTextDocumentParams | lsp.DidChangeTextDocumentParams,
 ):
@@ -46,13 +46,13 @@ def publish_diagnostics(
         if not ctx:
             diagnostics = []
         else:
-            diagnostics = validate_function(ctx, text_doc)
+            diagnostics = await validate_function(ctx, text_doc)
             diagnostics = [
                 tokenstream_error_to_lsp_diag(d, type(ls).__name__, text_doc.filename)
                 for d in diagnostics
             ]
 
-    # logging.debug(f"Sending diagnostics: {diagnostics}")
+    logging.debug(f"Sending diagnostics: {diagnostics}")
 
     ls.publish_diagnostics(
         params.text_document.uri,

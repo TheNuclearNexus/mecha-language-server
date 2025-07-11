@@ -201,13 +201,13 @@ class SemanticTokenCollector(Reducer):
         return list(sum(tokens, ()))
 
 
-def semantic_tokens(ls: AegisServer, params: lsp.SemanticTokensParams):
+async def semantic_tokens(ls: AegisServer, params: lsp.SemanticTokensParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
     with ls.context(text_doc) as ctx:
         if ctx is None:
             data = []
         else:
-            if compiled_doc := get_compilation_data(ctx, text_doc):
+            if compiled_doc := await get_compilation_data(ctx, text_doc):
                 ast = compiled_doc.ast
 
                 data = (
@@ -220,4 +220,4 @@ def semantic_tokens(ls: AegisServer, params: lsp.SemanticTokensParams):
             else:
                 data = []
 
-    return lsp.SemanticTokens(data=data)
+    return lsp.SemanticTokens(data=data or [])

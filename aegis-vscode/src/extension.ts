@@ -18,6 +18,7 @@
  * ----------------------------------------------------------------------- */
 "use strict";
 
+import * as net from "net";
 import * as path from "path";
 import * as vscode from "vscode";
 import * as semver from "semver";
@@ -265,22 +266,32 @@ async function startLangServer(context: vscode.ExtensionContext) {
     logger.debug(process.env.DEV);
     const serverOptions: ServerOptions =
         process.env.DEV == "true"
-            ? {
-                  command: process.env.PYTHON,
-                  args: ["-m", serverPath, "--debug_ast", "true", ...args],
-                  options: { cwd: cwd },
+            ? () => {
+                  return new Promise((resolve /*, reject */) => {
+                      const clientSocket = new net.Socket();
+                      clientSocket.connect(Number.parseInt(process.env.SERVER_PORT ?? "4000"), "127.0.0.1", () => {
+                          resolve({
+                              reader: clientSocket,
+                              writer: clientSocket,
+                          });
+                      });
+                  });
               }
-            : {
-                  command: pythonCommand[0],
-                  args: [
-                      context.asAbsolutePath("language_server.pyz"),
-                      ...args,
-                  ],
-                  options: { cwd },
-              };
+            : (() => {
+                  const options = {
+                      command: pythonCommand[0],
+                      args: [
+                          context.asAbsolutePath("language_server.pyz"),
+                          ...args,
+                      ],
+                      options: { cwd },
+                  };
 
-    logger.debug([serverOptions.command, ...serverOptions.args].join(" "));
-    logger.debug(JSON.stringify(serverOptions));
+                  logger.info([options.command, ...options.args].join(" "));
+                  logger.info(JSON.stringify(options));
+
+                  return options;
+              })();
 
     client = new LanguageClient("mecha-lsp", serverOptions, getClientOptions());
 
@@ -568,18 +579,16 @@ async function getPythonCommand(
         return;
     }
     const command = [pythonPath];
-    const enableDebugger = config.get<boolean>("debug");
+    const enableDebugger = process.env.DEV === "true";
 
     if (!enableDebugger) {
         return command;
     }
 
-    const debugHost = config.get<string>("debugHost");
-    const debugPort = config.get<integer>("debugPort");
     try {
         const debugArgs = await python.debug.getRemoteLauncherCommand(
-            debugHost,
-            debugPort,
+            "localhost",
+            4000,
             true
         );
         // Debugpy recommends we disable frozen modules

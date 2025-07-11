@@ -75,26 +75,26 @@ def get_token_options(mecha: Mecha, token_type: str, value: str | None):
     return []
 
 
-def completion(ls: AegisServer, params: lsp.CompletionParams):
+async def completion(ls: AegisServer, params: lsp.CompletionParams):
     text_doc = ls.workspace.get_document(params.text_document.uri)
 
     with ls.context(text_doc) as ctx:
         if ctx is None:
             items = None
         else:
-            items = get_completions(ctx, params.position, text_doc)
+            items = await get_completions(ctx, params.position, text_doc)
 
         return items
 
 
-def get_completions(
+async def get_completions(
     ctx: LanguageServerContext,
     pos: lsp.Position,
     text_doc: TextDocument,
 ) -> lsp.CompletionList | None:
     mecha = ctx.inject(Mecha)
 
-    if not (compiled_doc := get_compilation_data(ctx, text_doc)):
+    if not (compiled_doc := await get_compilation_data(ctx, text_doc)):
         return None
 
     ast = compiled_doc.ast

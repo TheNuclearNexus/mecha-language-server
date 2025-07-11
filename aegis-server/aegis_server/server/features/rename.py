@@ -12,8 +12,8 @@ from .helpers import (
 )
 
 
-def rename_variable(ls: AegisServer, params: lsp.RenameParams):
-    compiled_doc = fetch_compilation_data(ls, params)
+async def rename_variable(ls: AegisServer, params: lsp.RenameParams):
+    compiled_doc = await fetch_compilation_data(ls, params)
 
     if compiled_doc is None or compiled_doc.compiled_module is None:
         return

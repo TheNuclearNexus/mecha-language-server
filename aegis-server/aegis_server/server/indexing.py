@@ -729,7 +729,6 @@ class Indexer(MutatingReducer):
 
         for step in steps:
             try:
-                # logging.debug(id(ast))
                 ast = step(ast)
             except CompilationError as e:
                 raise e.__cause__

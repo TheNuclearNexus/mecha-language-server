@@ -68,14 +68,14 @@ class AegisServer(LanguageServer):
         )
         # self._index_thread.start()
 
-    def index_functions(self, ctx: LanguageServerContext):
+    async def index_functions(self, ctx: LanguageServerContext):
         for function, file in cast(
             list[tuple[str, Function | Module]],
             [*ctx.data.functions.items(), *ctx.data[Module].items()],
         ):
             if function not in COMPILATION_RESULTS and file.source_path:
                 self.show_message_log("indexing " + function, lsp.MessageType.Debug)
-                validate_function(
+                await validate_function(
                     ctx, self.workspace.get_document(Path(file.source_path).as_uri())
                 )
                 break
@@ -88,7 +88,7 @@ class AegisServer(LanguageServer):
                     if not lock.acquire(blocking=False):
                         continue
 
-                    self.index_functions(ctx)
+                    asyncio.run(self.index_functions(ctx))
 
                     lock.release()
                     time.sleep(0.1)
@@ -262,8 +262,7 @@ class AegisServer(LanguageServer):
             yield None
 
         parents = sorted(parents, key=lambda p: len(str(p).split(os.path.sep)))
-        # logging.debug(parents)
-        # # logging.debug(parents[-1])
+
         (lock, context) = self.get_instance(parents[-1])
 
         lock.acquire()
