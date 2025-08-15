@@ -451,7 +451,7 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
 
         if (error) throw error;
 
-        return stdout.includes("True");
+        return stdout.includes("False");
     } catch (e) {
         logger.error(`Error encountered while checking for beet!\n${e}`);
         return false;
