@@ -1,11 +1,11 @@
 {
-    "name": "mecha-language-server",
+    "name": "aegis-language-server",
     "publisher": "thenuclearnexus",
     "displayName": "Aegis",
     "description": "MCFunction/Bolt language support for VSCode",
     "icon": "./aegis.png",
     "author": "TheNuclearNexus",
-    "repository": "https://github.com/TheNuclearNexus/mecha-language-server",
+    "repository": "https://github.com/TheNuclearNexus/aegis-language-server",
     "license": "MIT",
     "version": "0.1.0",
     "engines": {
@@ -25,24 +25,24 @@
     "contributes": {
         "commands": [
             {
-                "command": "mecha.server.restart",
+                "command": "aegis.server.restart",
                 "title": "Restart Language Server",
-                "category": "mecha"
+                "category": "aegis"
             },
             {
-                "command": "mecha.server.executeCommand",
+                "command": "aegis.server.executeCommand",
                 "title": "Execute Command",
-                "category": "mecha"
+                "category": "aegis"
             },
             {
-                "command": "mecha.server.updateServer",
+                "command": "aegis.server.updateServer",
                 "title": "Update from Nightly Build",
-                "category": "mecha"
+                "category": "aegis"
             },
             {
-                "command": "mecha.server.openServerLog",
+                "command": "aegis.server.openServerLog",
                 "title": "Open Language Server Log",
-                "category": "mecha"
+                "category": "aegis"
             }
         ],
         "configuration": [
@@ -50,18 +50,23 @@
                 "type": "object",
                 "title": "Server Configuration",
                 "properties": {
-                    "mecha.server.cwd": {
+                    "aegis.server.cwd": {
                         "scope": "resource",
                         "type": "string",
                         "description": "The working directory from which to launch the server.",
                         "markdownDescription": "The working directory from which to launch the server.\nIf blank, this will default to the `examples/servers` directory."
                     },
-                    "mecha.server.plugins": {
+                    "aegis.server.plugins": {
                         "scope": "resource",
                         "type": "array",
                         "description": "Which plugins should be loaded into Beet"
                     },
-                    "mecha.trace.server": {
+                    "aegis.client.hide_env_warnings": {
+                        "scope": "resource",
+                        "type": "boolean",
+                        "description": "Should enviroment warnings be hidden"
+                    },
+                    "aegis.trace.server": {
                         "scope": "resource",
                         "type": "string",
                         "default": "off",
@@ -83,7 +88,7 @@
                 "type": "object",
                 "title": "Client Configuration",
                 "properties": {
-                    "mecha.client.documentSelector": {
+                    "aegis.client.documentSelector": {
                         "scope": "window",
                         "type": "array",
                         "items": {

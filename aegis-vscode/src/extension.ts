@@ -38,7 +38,7 @@ import * as JSZip from "jszip";
 const MIN_PYTHON = semver.parse("3.10.0");
 
 // Some other nice to haves.
-// TODO: Check selected env satisfies mecha' requirements - if not offer to run the select env command.
+// TODO: Check selected env satisfies aegis' requirements - if not offer to run the select env command.
 // TODO: TCP Transport
 // TODO: WS Transport
 // TODO: Web Extension support (requires WASM-WASI!)
@@ -65,7 +65,7 @@ function registerCommand(
  * Called when vscode first activates the extension
  */
 export async function activate(context: vscode.ExtensionContext) {
-    logger = vscode.window.createOutputChannel("mecha", { log: true });
+    logger = vscode.window.createOutputChannel("aegis", { log: true });
     logger.info("Extension activated.");
 
     await getPythonExtension();
@@ -73,15 +73,15 @@ export async function activate(context: vscode.ExtensionContext) {
         return;
     }
 
-    registerCommand(context, "mecha.server.openServerLog", async () => {
+    registerCommand(context, "aegis.server.openServerLog", async () => {
         vscode.window.showTextDocument(
-            vscode.Uri.file(path.join(context.extensionPath, "mecha.log"))
+            vscode.Uri.file(path.join(context.extensionPath, "aegis.log"))
         );
     });
 
-    registerCommand(context, "mecha.server.updateServer", async () => {
+    registerCommand(context, "aegis.server.updateServer", async () => {
         const resp = await fetch(
-            "https://nightly.link/TheNuclearNexus/mecha-language-server/workflows/main/main/extension.zip"
+            "https://nightly.link/TheNuclearNexus/aegis-language-server/workflows/main/main/extension.zip"
         );
 
         if (!resp.ok)
@@ -116,7 +116,7 @@ export async function activate(context: vscode.ExtensionContext) {
         if (context.extensionMode == vscode.ExtensionMode.Production) {
             await vscode.commands.executeCommand(
                 "workbench.extensions.uninstallExtension",
-                "thenuclearnexus.mecha-language-server"
+                "thenuclearnexus.aegis-language-server"
             );
             vscode.commands.executeCommand(
                 "workbench.extensions.installExtension",
@@ -126,13 +126,13 @@ export async function activate(context: vscode.ExtensionContext) {
     });
 
     // Restart language server command
-    registerCommand(context, "mecha.server.restart", async () => {
+    registerCommand(context, "aegis.server.restart", async () => {
         logger.info("restarting server...");
         await startLangServer(context);
     });
 
     // Execute command... command
-    registerCommand(context, "mecha.server.executeCommand", async () => {
+    registerCommand(context, "aegis.server.executeCommand", async () => {
         await executeServerCommand();
     });
 
@@ -149,8 +149,8 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(async (event) => {
             if (
-                event.affectsConfiguration("mecha.server") ||
-                event.affectsConfiguration("mecha.client")
+                event.affectsConfiguration("aegis.server") ||
+                event.affectsConfiguration("aegis.client")
             ) {
                 logger.info("config modified, restarting server...");
                 await startLangServer(context);
@@ -234,7 +234,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
 
     didClientFail = false;
 
-    const config = vscode.workspace.getConfiguration("mecha.server");
+    const config = vscode.workspace.getConfiguration("aegis.server");
 
     const cwd = context.extensionPath;
 
@@ -269,12 +269,16 @@ async function startLangServer(context: vscode.ExtensionContext) {
             ? () => {
                   return new Promise((resolve /*, reject */) => {
                       const clientSocket = new net.Socket();
-                      clientSocket.connect(Number.parseInt(process.env.SERVER_PORT ?? "4000"), "127.0.0.1", () => {
-                          resolve({
-                              reader: clientSocket,
-                              writer: clientSocket,
-                          });
-                      });
+                      clientSocket.connect(
+                          Number.parseInt(process.env.SERVER_PORT ?? "4000"),
+                          "127.0.0.1",
+                          () => {
+                              resolve({
+                                  reader: clientSocket,
+                                  writer: clientSocket,
+                              });
+                          }
+                      );
                   });
               }
             : (() => {
@@ -293,7 +297,7 @@ async function startLangServer(context: vscode.ExtensionContext) {
                   return options;
               })();
 
-    client = new LanguageClient("mecha-lsp", serverOptions, getClientOptions());
+    client = new LanguageClient("aegis-lsp", serverOptions, getClientOptions());
 
     const promises = [client.start()];
 
@@ -337,17 +341,34 @@ async function checkEnviroment(pythonCommand: string[]): Promise<boolean> {
         return false;
     }
 
+    if (
+        vscode.workspace
+            .getConfiguration("aegis")
+            .get("aegis.client.hide_env_warnings")
+    )
+        return true;
+
     await checkForVenv(pythonCommand[0]);
 
     if (!(await hasBeet(pythonCommand[0]))) {
         vscode.window
             .showErrorMessage(
                 "Beet is not installed in this enviroment!",
-                "Install Beet"
+                "Install Beet",
+                "Don't Show Again"
             )
             .then(async (selection) => {
                 if (selection == "Install Beet")
                     await installBeet(pythonCommand[0]);
+                else if (selection == "Don't Show Again") {
+                    vscode.workspace
+                        .getConfiguration("aegis")
+                        .update(
+                            "aegis.client.hide_env_warnings",
+                            true,
+                            vscode.ConfigurationTarget.Workspace
+                        );
+                }
             });
         return false;
     }
@@ -392,7 +413,8 @@ async function checkForVenv(pythonCommand: string) {
                 .showWarningMessage(
                     "It's recommended to use Beet within a Virtual Enviroment",
                     "Configure Python",
-                    "Learn More"
+                    "Learn More",
+                    "Don't Show Again"
                 )
                 .then((selection) => {
                     if (selection == "Configure Python") {
@@ -403,6 +425,14 @@ async function checkForVenv(pythonCommand: string) {
                                 "https://docs.python.org/3/library/venv.html"
                             )
                         );
+                    } else if (selection == "Don't Show Again") {
+                        vscode.workspace
+                            .getConfiguration("aegis")
+                            .update(
+                                "aegis.client.hide_env_warnings",
+                                true,
+                                vscode.ConfigurationTarget.Workspace
+                            );
                     }
                 });
         }
@@ -416,12 +446,12 @@ async function hasBeet(pythonCommand: string): Promise<boolean> {
     try {
         const [error, stdout] = await runPythonCommand(pythonCommand, [
             "-c",
-            "import beet; print(beet.__version__)",
+            "import importlib.util; print(importlib.util.find_spec('beet') is None)",
         ]);
 
         if (error) throw error;
 
-        return stdout.match(/([0-9]\.?)+/g) != null;
+        return stdout.includes("True");
     } catch (e) {
         logger.error(`Error encountered while checking for beet!\n${e}`);
         return false;
@@ -436,7 +466,7 @@ async function installBeet(pythonCommand: string) {
             "pip",
             "install",
             "beet",
-            "mecha",
+            "aegis",
             "bolt",
         ]);
         if (error) throw error;
@@ -449,7 +479,7 @@ async function installBeet(pythonCommand: string) {
             .then((selection) => {
                 if (selection != "Restart Language Server") return;
 
-                vscode.commands.executeCommand("mecha.server.restart");
+                vscode.commands.executeCommand("aegis.server.restart");
             });
     } catch (e) {
         const message = `Error encountered while installing beet!\n${e}`;
@@ -504,13 +534,13 @@ function startDebugging(): Promise<void> {
     setTimeout(async () => {
         await vscode.debug.startDebugging(
             vscode.workspace.workspaceFolders[0],
-            "mecha: Debug Server"
+            "aegis: Debug Server"
         );
     }, 2000);
 }
 
 function getClientOptions(): LanguageClientOptions {
-    const config = vscode.workspace.getConfiguration("mecha.client");
+    const config = vscode.workspace.getConfiguration("aegis.client");
     const options = {
         documentSelector: config.get<any>("documentSelector"),
         outputChannel: logger,
@@ -573,7 +603,6 @@ async function executeServerCommand() {
 async function getPythonCommand(
     resource?: vscode.Uri
 ): Promise<string[] | undefined> {
-    const config = vscode.workspace.getConfiguration("mecha.server", resource);
     const pythonPath = await getPythonInterpreter(resource);
     if (!pythonPath) {
         return;
@@ -612,7 +641,7 @@ async function getPythonCommand(
 async function getPythonInterpreter(
     resource?: vscode.Uri
 ): Promise<string | undefined> {
-    const config = vscode.workspace.getConfiguration("mecha.server", resource);
+    const config = vscode.workspace.getConfiguration("aegis.server", resource);
     const pythonPath = config.get<string>("pythonPath");
     if (pythonPath) {
         logger.info(
@@ -658,7 +687,7 @@ async function getPythonInterpreter(
     if (semver.lt(pythonVersion, MIN_PYTHON)) {
         const message = [
             `Your currently configured environment provides Python v${pythonVersion} `,
-            `but mecha requires v${MIN_PYTHON}.\n\nPlease choose another environment.`,
+            `but aegis requires v${MIN_PYTHON}.\n\nPlease choose another environment.`,
         ].join("");
 
         const response = await vscode.window.showErrorMessage(
