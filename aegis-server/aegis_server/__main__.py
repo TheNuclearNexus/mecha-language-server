@@ -35,7 +35,6 @@ def create_server():
     def did_open(ls: AegisServer, params: lsp.DidOpenTextDocumentParams):
         asyncio.run(publish_diagnostics(ls, params))
 
-
     @server.thread()
     @server.feature(
         lsp.TEXT_DOCUMENT_COMPLETION,
@@ -82,7 +81,7 @@ def create_server():
     @server.feature(lsp.TEXT_DOCUMENT_RENAME)
     def rename(ls: AegisServer, params: lsp.RenameParams):
         return asyncio.run(rename_variable(ls, params))
-    
+
     @server.command("mecha.server.dumpIndices")
     def dump(ls: AegisServer, *args):
         for _, i in ls._instances.values():
@@ -116,6 +115,7 @@ def add_arguments(parser: argparse.ArgumentParser):
         default=False,
         help="Show the AST node for the hovered token",
     )
+
 
 def main():
     print("Starting Aegis Server")

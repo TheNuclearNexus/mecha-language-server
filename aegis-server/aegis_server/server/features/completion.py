@@ -1,7 +1,8 @@
 import builtins
+import logging
 
 from aegis_server.providers.variable import add_raw_definition, add_variable_definition
-from bolt import Runtime, UndefinedIdentifier
+from bolt import Runtime, UnboundLocalIdentifier, UndefinedIdentifier
 from lsprotocol import types as lsp
 from mecha import (
     AstOption,
@@ -133,7 +134,10 @@ def get_diag_completions(
                     pattern if isinstance(pattern, tuple) else [pattern, None]
                 )
                 items += get_token_options(mecha, token_type, value)
-            break
+            
+        if isinstance(diagnostic, UnboundLocalIdentifier):
+            for name in mecha.spec.tree.children.keys(): #type: ignore
+                items.append(lsp.CompletionItem(name, kind = lsp.CompletionItemKind.Keyword))
 
         if isinstance(diagnostic, UndefinedIdentifier):
             for name, variable in diagnostic.lexical_scope.variables.items():
@@ -145,5 +149,4 @@ def get_diag_completions(
             for name in runtime.builtins:
                 add_raw_definition(items, name, getattr(builtins, name))
 
-            break
     return lsp.CompletionList(False, items)

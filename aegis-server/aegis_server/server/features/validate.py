@@ -223,8 +223,9 @@ async def parse_function(
 
     # # Parse the stream
     mecha = ctx.inject(Mecha)
-    compilation_unit = mecha.database[file_instance]
     runtime = ctx.inject(Runtime)
+
+    compilation_unit = mecha.database[file_instance]
     compiled_module = runtime.modules.registry.get(file_instance)
 
     return CompiledDocument(
@@ -355,5 +356,5 @@ async def compile(
                     logging.error("\n".join(traceback.format_tb(cause.__traceback__)))
 
             logging.debug(f"Execution took {time.time() - start}s")
-            await asyncio.sleep(0)
+            
     return indexer.output_ast, diagnostics
