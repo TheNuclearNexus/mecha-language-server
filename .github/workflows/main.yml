@@ -8,6 +8,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -38,7 +39,7 @@ jobs:
         run: cd aegis-server && poetry install && poetry run python -m aegis_server --help
 
       - name: Build aegis-server zipapp
-        run: ./build_zipapp.sh
+        run: chmod +x ./build_zipapp.sh && ./build_zipapp.sh
 
       - name: Use Node.js
         uses: actions/setup-node@v4
@@ -62,4 +63,13 @@ jobs:
           VSCE_PAT: ${{secrets.MARKETPLACE_TOKEN}}
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
           PYPI_TOKEN: ${{secrets.PYPI_TOKEN}}
+
+      - name: Build JetBrains Plugin
+        run: cd ./aegis-jetbrains && chmod +x ./gradlew && ./gradlew buildPlugin
+
+      - name: Upload JetBrains Plugin Artifact
+        uses: actions/upload-artifact@v4.0.0
+        with:
+          path: "aegis-jetbrains/build/distributions/*.zip"
+          name: jetbrains-plugin
    

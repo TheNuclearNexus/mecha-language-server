@@ -1,6 +1,8 @@
 __pycache__/
 .venv/
 .vscode/
+.idea/
+/.idea/
 .mls_cache/
 .aegis_cache/
 .beet_cache/
@@ -13,3 +15,6 @@ dist/
 build/
 testing/
 node_modules/
+aegis-jetbrains/build/
+aegis-jetbrains/.gradle/
+aegis-jetbrains/.intellijPlatform

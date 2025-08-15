@@ -1,0 +1,45 @@
+<idea-plugin>
+    <id>com.github.thenuclearnexus.aegis</id>
+    <name>Aegis LSP Plugin</name>
+    <vendor>TheNuclearNexus</vendor>
+    <version>0.0.0</version>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.ultimate</depends>
+    <depends>PythonCore</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <fileType name="McFunction"
+                  language="mcfunction"
+                  implementationClass="com.github.thenuclearnexus.aegis.lang.McFunctionFileType"
+                  extensions="mcfunction"
+                  fieldName="INSTANCE"/>
+
+        <fileType name="Bolt"
+                  language="bolt"
+                  implementationClass="com.github.thenuclearnexus.aegis.lang.BoltFileType"
+                  extensions="bolt"
+                  fieldName="INSTANCE"/>
+
+        <platform.lsp.serverSupportProvider implementation="com.github.thenuclearnexus.aegis.ide.lsp.AegisLspServerSupportProvider" />
+
+        <notificationGroup displayType="BALLOON" id="Aegis LSP" />
+
+        <configurationType implementation="com.github.thenuclearnexus.aegis.ide.run.BeetConfigurationType"/>
+        <runConfigurationProducer implementation="com.github.thenuclearnexus.aegis.ide.run.BeetRunConfigurationProducer"/>
+    </extensions>
+    <actions>
+        <action id="NewBoltFileAction"
+                class="com.github.thenuclearnexus.aegis.actions.NewBoltFileAction"
+                text="Bolt File"
+                description="Create a new Bolt file">
+            <add-to-group group-id="NewGroup" anchor="first"/>
+        </action>
+        <action id="NewMcFunctionFileAction"
+                class="com.github.thenuclearnexus.aegis.actions.NewMcFunctionFileAction"
+                text="mcfunction File"
+                description="Create a new mcfunction file">
+            <add-to-group group-id="NewGroup" anchor="first"/>
+        </action>
+    </actions>
+</idea-plugin>
